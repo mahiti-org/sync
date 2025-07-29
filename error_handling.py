@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction, DatabaseError
 from rest_framework import status
 from rest_framework.response import Response
-from .config import SbSyncConfig
+from .config import SyncConfig
 
 
 class ErrorSeverity(Enum):
@@ -121,7 +121,7 @@ class ErrorHandler:
     def __init__(self):
         self.logger = logging.getLogger('sb_sync.errors')
         self.error_counts = {}
-        self.retry_config = SbSyncConfig.get_setting('SB_SYNC_RETRY_CONFIG', {
+        self.retry_config = SyncConfig.get_config('ERROR', 'RETRY_CONFIG', {
             'max_retries': 3,
             'base_delay': 1,
             'max_delay': 60,
@@ -394,8 +394,8 @@ class ErrorReportingHandler:
     
     def __init__(self):
         self.logger = logging.getLogger('sb_sync.reporting')
-        self.enable_alerts = SbSyncConfig.get_setting('SB_SYNC_ENABLE_ALERTS', False)
-        self.alert_webhook = SbSyncConfig.get_setting('SB_SYNC_ALERT_WEBHOOK_URL')
+        self.enable_alerts = SyncConfig.get_config('ERROR', 'ENABLE_ALERTS', False)
+        self.alert_webhook = SyncConfig.get_config('ERROR', 'ALERT_WEBHOOK_URL')
     
     def report_error(self, error: SyncError, context: Dict[str, Any] = None):
         """Report error through configured channels"""

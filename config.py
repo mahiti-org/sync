@@ -1,353 +1,364 @@
 """
-Configuration settings for sb-sync package
+Configuration management for sb-sync package
 """
-from django.conf import settings
-from typing import Dict, Any, List, Optional
 import os
 import json
-from pathlib import Path
+import logging
+from django.conf import settings
+from django.apps import apps
+from typing import Dict, Any, List, Optional
 
+logger = logging.getLogger('sb_sync')
 
-class SbSyncConfig:
-    """Configuration manager for sb-sync package with simplified structure"""
+class SyncConfig:
+    """Configuration management for sb-sync"""
     
-    # Core settings with sensible defaults
-    CORE_DEFAULTS = {
-        # Basic configuration
-        'SB_SYNC_BATCH_SIZE': 100,
-        'SB_SYNC_MAX_BATCH_SIZE': 1000,
-        'SB_SYNC_LOG_DIR': 'logs',
-        'SB_SYNC_LOG_RETENTION_DAYS': 90,
-        
-        # Rate limiting
-        'SB_SYNC_RATE_LIMIT_PER_MINUTE': 60,
-        'SB_SYNC_RATE_LIMIT_PER_HOUR': 3000,
-        
-        # Authentication
-        'SB_SYNC_TOKEN_EXPIRY_DAYS': 7,
-        'SB_SYNC_REQUIRE_AUTHENTICATION': True,
-        
-        # Caching
-        'SB_SYNC_ENABLE_CACHE': True,
-        'SB_SYNC_CACHE_TIMEOUT': 3600,
-        
-        # Performance
-        'SB_SYNC_ENABLE_PERFORMANCE_MONITORING': True,
-        'SB_SYNC_ENABLE_BULK_OPERATIONS': True,
-        'SB_SYNC_BULK_BATCH_SIZE': 1000,
-        
-        # Error handling
-        'SB_SYNC_ENABLE_RETRY': True,
-        'SB_SYNC_MAX_RETRIES': 3,
-        'SB_SYNC_RETRY_DELAY': 1,
-        
-        # Models
-        'SB_SYNC_ALLOWED_MODELS': [],
-        'SB_SYNC_EXCLUDED_MODELS': ['sb_sync.SyncLog', 'sb_sync.SyncMetadata'],
+    # Core Configuration
+    CORE = {
+        'ENABLED': True,
+        'DEBUG': False,
+        'LOG_LEVEL': 'INFO',
+        'DEFAULT_BATCH_SIZE': 1000,
+        'MAX_BATCH_SIZE': 10000,
+        'DEFAULT_TIMEOUT': 30,
+        'MAX_TIMEOUT': 300,
+        'RETRY_ATTEMPTS': 3,
+        'RETRY_DELAY': 1,
     }
     
-    # Advanced settings (optional)
-    ADVANCED_DEFAULTS = {
-        # Error handling
-        'SB_SYNC_ENABLE_ERROR_CATEGORIZATION': True,
-        'SB_SYNC_ENABLE_ERROR_SEVERITY': True,
-        'SB_SYNC_ENABLE_ERROR_CONTEXT': True,
-        'SB_SYNC_ENABLE_PARTIAL_SUCCESS': True,
-        'SB_SYNC_PARTIAL_SUCCESS_THRESHOLD': 0.5,
-        
-        # Security
-        'SB_SYNC_ENABLE_CSRF': False,
-        'SB_SYNC_ENABLE_CORS': True,
-        'SB_SYNC_CORS_ORIGINS': ['*'],
-        
-        # API features
-        'SB_SYNC_ENABLE_COMPRESSION': True,
-        'SB_SYNC_ENABLE_PAGINATION': True,
-        'SB_SYNC_PAGE_SIZE': 50,
-        'SB_SYNC_MAX_PAGE_SIZE': 200,
-        'SB_SYNC_ENABLE_FILTERING': True,
-        'SB_SYNC_ENABLE_SORTING': True,
-        'SB_SYNC_ENABLE_SEARCH': True,
-        'SB_SYNC_SEARCH_FIELDS': ['name', 'description'],
-        
-        # Transactions
-        'SB_SYNC_ENABLE_TRANSACTIONS': True,
-        'SB_SYNC_ENABLE_ROLLBACK': True,
-        
-        # Background tasks
-        'SB_SYNC_ENABLE_BACKGROUND_TASKS': True,
-        'SB_SYNC_CELERY_BROKER_URL': 'redis://localhost:6379/0',
-        'SB_SYNC_CELERY_RESULT_BACKEND': 'redis://localhost:6379/0',
-        
-        # Monitoring
-        'SB_SYNC_ENABLE_METRICS': True,
-        'SB_SYNC_METRICS_BACKEND': 'memory',
-        'SB_SYNC_ENABLE_ALERTS': False,
-        'SB_SYNC_ENABLE_DASHBOARD': False,
+    # Advanced Configuration
+    ADVANCED = {
+        'ENABLE_CACHING': True,
+        'CACHE_TIMEOUT': 3600,
+        'ENABLE_COMPRESSION': True,
+        'COMPRESSION_LEVEL': 6,
+        'ENABLE_ENCRYPTION': False,
+        'ENCRYPTION_KEY': None,
+        'ENABLE_LOGGING': True,
+        'LOG_FILE': 'sb_sync.log',
+        'ENABLE_METRICS': True,
+        'METRICS_INTERVAL': 60,
     }
     
-    # Error handling configuration
-    ERROR_CONFIG = {
-        'categories': [
-            'validation', 'authentication', 'authorization', 'database',
-            'network', 'timeout', 'rate_limit', 'configuration',
-            'security', 'performance', 'unknown'
+    # Error Handling Configuration
+    ERROR = {
+        'ENABLE_ERROR_HANDLING': True,
+        'ERROR_RETRY_ATTEMPTS': 3,
+        'ERROR_RETRY_DELAY': 1,
+        'ERROR_LOG_LEVEL': 'ERROR',
+        'ERROR_NOTIFICATION_EMAIL': None,
+        'ERROR_SLACK_WEBHOOK': None,
+        'ERROR_DISCORD_WEBHOOK': None,
+        'ERROR_TELEGRAM_BOT_TOKEN': None,
+        'ERROR_TELEGRAM_CHAT_ID': None,
+    }
+    
+    # Performance Configuration
+    PERFORMANCE = {
+        'ENABLE_QUERY_OPTIMIZATION': True,
+        'ENABLE_MEMORY_OPTIMIZATION': True,
+        'ENABLE_CONNECTION_POOLING': True,
+        'POOL_SIZE': 10,
+        'MAX_CONNECTIONS': 100,
+        'CONNECTION_TIMEOUT': 30,
+        'ENABLE_BULK_OPERATIONS': True,
+        'BULK_SIZE': 1000,
+        'ENABLE_ASYNC_PROCESSING': True,
+        'ASYNC_WORKERS': 4,
+        'ASYNC_QUEUE_SIZE': 1000,
+    }
+    
+    # Security Configuration
+    SECURITY = {
+        'ENABLE_RATE_LIMITING': True,
+        'RATE_LIMIT_REQUESTS': 100,
+        'RATE_LIMIT_WINDOW': 60,
+        'ENABLE_IP_WHITELIST': False,
+        'IP_WHITELIST': [],
+        'ENABLE_API_KEY_AUTH': True,
+        'API_KEY_HEADER': 'X-API-Key',
+        'ENABLE_JWT_AUTH': True,
+        'JWT_SECRET_KEY': None,
+        'JWT_ALGORITHM': 'HS256',
+        'JWT_EXPIRATION': 3600,
+    }
+    
+    # Model Discovery Configuration
+    MODEL_DISCOVERY = {
+        'AUTO_DISCOVER_MODELS': True,
+        'INCLUDE_APPS': [
+            # List of apps whose models will be synced
+            # Empty list = include all apps
+            # Example: ['myapp', 'healthcare', 'ecommerce']
         ],
-        'severity_levels': ['low', 'medium', 'high', 'critical'],
-        'retryable_errors': ['database', 'network', 'timeout', 'rate_limit'],
-        'retry_config': {
-            'max_retries': 3,
-            'base_delay': 1,
-            'max_delay': 60,
-            'backoff_factor': 2,
-        },
-        'recovery_strategies': {
-            'database': 'reconnect',
-            'network': 'wait_and_retry',
-            'configuration': 'reload_settings'
-        },
-        'fallback_strategies': {
-            'database': 'cache',
-            'network': 'offline_mode',
-            'validation': 'default_values'
-        },
-    }
-    
-    # Performance configuration
-    PERFORMANCE_CONFIG = {
-        'memory_thresholds': {
-            'warning': 500,  # MB
-            'critical': 1000,  # MB
-        },
-        'cache_thresholds': {
-            'hit_rate_warning': 0.7,  # 70%
-            'hit_rate_critical': 0.5,  # 50%
-        },
-        'processing_thresholds': {
-            'warning': 5.0,  # seconds
-            'critical': 10.0,  # seconds
-        },
-        'query_thresholds': {
-            'warning': 50,  # queries
-            'critical': 100,  # queries
-        },
-    }
-    
-    # Security configuration
-    SECURITY_CONFIG = {
-        'encryption_enabled': False,
-        'encryption_algorithm': 'AES256',
-        'signing_enabled': False,
-        'signing_algorithm': 'HMAC-SHA256',
-        'sanitization_rules': [
-            'html_escaping',
-            'sql_injection_prevention',
-            'xss_prevention'
+        'EXCLUDE_MODELS': [
+            # Models within the included apps that will be excluded from sync
+            'sb_sync.SyncLog',
+            'sb_sync.SyncMetadata',
+            'sb_sync.PerformanceMetrics',
+            'sb_sync.Organization',
+            'sb_sync.UserOrganization',
+            'sb_sync.ModelPermission',
+            'sb_sync.UserSyncMetadata',
+            'sb_sync.DataFilter',
         ],
-        'validation_rules': [
-            'required_fields',
-            'data_types',
-            'value_ranges',
-            'format_validation'
-        ],
+        'INCLUDE_CUSTOM_MODELS': True,
+        'MODEL_PREFIX': '',
+        'MODEL_SUFFIX': '',
+        'MODEL_NAMESPACE': '',
+    }
+    
+    # Data Source Configuration
+    DATA_SOURCES = {
+        'ENABLE_EXTERNAL_SOURCES': True,
+        'AUTO_REGISTER_SOURCES': True,
+        'EXTERNAL_SOURCE_TYPES': ['api', 'database', 'file'],
+        'DEFAULT_API_TIMEOUT': 30,
+        'DEFAULT_DB_TIMEOUT': 60,
+        'DEFAULT_FILE_TIMEOUT': 30,
+        'ENABLE_SOURCE_CACHING': True,
+        'SOURCE_CACHE_TIMEOUT': 3600,
+    }
+    
+    # Permission Configuration
+    PERMISSIONS = {
+        'ENABLE_DYNAMIC_PERMISSIONS': True,
+        'AUTO_GENERATE_PERMISSIONS': True,
+        'DEFAULT_PERMISSION_TEMPLATE': 'read_write',
+        'ENABLE_ROLE_BASED_ACCESS': True,
+        'ENABLE_MULTI_TENANT': True,
+        'ENABLE_DATA_FILTERING': True,
+        'DEFAULT_FILTER_TEMPLATE': 'organization',
     }
     
     @classmethod
-    def get_setting(cls, key: str, default: Any = None) -> Any:
-        """Get a setting value with fallback to defaults"""
-        # Check Django settings first
-        if hasattr(settings, key):
-            return getattr(settings, key)
+    def get_config(cls, section: str = None, key: str = None) -> Any:
+        """Get configuration value"""
+        if section is None:
+            return {
+                'CORE': cls.CORE,
+                'ADVANCED': cls.ADVANCED,
+                'ERROR': cls.ERROR,
+                'PERFORMANCE': cls.PERFORMANCE,
+                'SECURITY': cls.SECURITY,
+                'MODEL_DISCOVERY': cls.MODEL_DISCOVERY,
+                'DATA_SOURCES': cls.DATA_SOURCES,
+                'PERMISSIONS': cls.PERMISSIONS,
+            }
         
-        # Check core defaults
-        if key in cls.CORE_DEFAULTS:
-            return cls.CORE_DEFAULTS[key]
+        section_config = getattr(cls, section.upper(), {})
         
-        # Check advanced defaults
-        if key in cls.ADVANCED_DEFAULTS:
-            return cls.ADVANCED_DEFAULTS[key]
+        if key is None:
+            return section_config
         
-        return default
+        return section_config.get(key)
     
     @classmethod
-    def get_all_settings(cls) -> Dict[str, Any]:
-        """Get all current settings"""
-        config = {}
-        
-        # Add core settings
-        for key in cls.CORE_DEFAULTS:
-            config[key] = cls.get_setting(key)
-        
-        # Add advanced settings
-        for key in cls.ADVANCED_DEFAULTS:
-            config[key] = cls.get_setting(key)
-        
-        return config
+    def set_config(cls, section: str, key: str, value: Any) -> None:
+        """Set configuration value"""
+        section_name = section.upper()
+        if hasattr(cls, section_name):
+            section_config = getattr(cls, section_name)
+            section_config[key] = value
+            logger.info(f"Configuration updated: {section}.{key} = {value}")
+        else:
+            logger.error(f"Invalid configuration section: {section}")
     
     @classmethod
-    def get_error_config(cls) -> Dict[str, Any]:
-        """Get error handling configuration"""
-        return cls.ERROR_CONFIG
-    
-    @classmethod
-    def get_performance_config(cls) -> Dict[str, Any]:
-        """Get performance configuration"""
-        return cls.PERFORMANCE_CONFIG
-    
-    @classmethod
-    def get_security_config(cls) -> Dict[str, Any]:
-        """Get security configuration"""
-        return cls.SECURITY_CONFIG
-    
-    @classmethod
-    def validate_settings(cls) -> List[str]:
-        """Validate current settings and return list of issues"""
-        issues = []
+    def get_all_models(cls) -> List[str]:
+        """Get all models from the application scope with inclusions and exclusions"""
+        if not cls.get_config('MODEL_DISCOVERY', 'AUTO_DISCOVER_MODELS'):
+            return []
         
-        # Check required Django settings
-        required_settings = ['SECRET_KEY', 'DATABASES']
-        for setting in required_settings:
-            if not hasattr(settings, setting):
-                issues.append(f"Missing required Django setting: {setting}")
+        all_models = []
+        include_apps = cls.get_config('MODEL_DISCOVERY', 'INCLUDE_APPS')
+        exclude_models = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS')
         
-        # Check database configuration
-        if hasattr(settings, 'DATABASES'):
-            if 'default' not in settings.DATABASES:
-                issues.append("Missing 'default' database configuration")
+        for app_config in apps.get_app_configs():
+            app_label = app_config.label
+            
+            # If INCLUDE_APPS is specified, only include models from those apps
+            if include_apps and app_label not in include_apps:
+                continue
+            
+            if app_config.models_module:
+                for model in app_config.models_module.__dict__.values():
+                    if hasattr(model, '_meta') and hasattr(model._meta, 'app_label'):
+                        model_name = f"{app_label}.{model.__name__}"
+                        
+                        # Skip models that are explicitly excluded
+                        if model_name in exclude_models:
+                            continue
+                        
+                        all_models.append(model_name)
         
-        # Check log directory
-        log_dir = cls.get_setting('SB_SYNC_LOG_DIR')
-        if log_dir:
-            try:
-                Path(log_dir).mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                issues.append(f"Cannot create log directory '{log_dir}': {str(e)}")
-        
-        # Check Celery configuration
-        if cls.get_setting('SB_SYNC_ENABLE_BACKGROUND_TASKS'):
-            broker_url = cls.get_setting('SB_SYNC_CELERY_BROKER_URL')
-            if not broker_url:
-                issues.append("Celery broker URL not configured")
-        
-        # Check batch sizes
-        batch_size = cls.get_setting('SB_SYNC_BATCH_SIZE')
-        max_batch_size = cls.get_setting('SB_SYNC_MAX_BATCH_SIZE')
-        if batch_size > max_batch_size:
-            issues.append(f"Batch size ({batch_size}) cannot exceed max batch size ({max_batch_size})")
-        
-        return issues
+        return all_models
     
     @classmethod
     def get_model_config(cls, model_name: str) -> Dict[str, Any]:
         """Get configuration for a specific model"""
-        allowed_models = cls.get_setting('SB_SYNC_ALLOWED_MODELS', [])
-        excluded_models = cls.get_setting('SB_SYNC_EXCLUDED_MODELS', [])
-        
-        config = {
+        model_config = {
             'enabled': True,
-            'sync_enabled': True,
             'push_enabled': True,
             'pull_enabled': True,
-            'validation_enabled': True,
-            'sanitization_enabled': True,
-            'compression_enabled': True,
-            'conflict_resolution': 'last_write_wins',
-            'sync_status_enabled': True,
-            'sync_history_enabled': True,
-            'sync_statistics_enabled': True,
-            'sync_monitoring_enabled': True,
-            'sync_api_docs_enabled': True,
-            'sync_hooks_enabled': True,
-            'sync_middleware_enabled': True,
-            'sync_signals_enabled': True,
-            'sync_permissions_enabled': True,
-            'sync_authentication_enabled': True,
-            'sync_throttling_enabled': True,
+            'batch_size': cls.get_config('CORE', 'DEFAULT_BATCH_SIZE'),
+            'timeout': cls.get_config('CORE', 'DEFAULT_TIMEOUT'),
+            'retry_attempts': cls.get_config('CORE', 'RETRY_ATTEMPTS'),
+            'retry_delay': cls.get_config('CORE', 'RETRY_DELAY'),
+            'caching_enabled': cls.get_config('ADVANCED', 'ENABLE_CACHING'),
+            'compression_enabled': cls.get_config('ADVANCED', 'ENABLE_COMPRESSION'),
+            'encryption_enabled': cls.get_config('ADVANCED', 'ENABLE_ENCRYPTION'),
+            'logging_enabled': cls.get_config('ADVANCED', 'ENABLE_LOGGING'),
+            'metrics_enabled': cls.get_config('ADVANCED', 'ENABLE_METRICS'),
         }
         
-        # Check if model is allowed/excluded
-        if allowed_models and model_name not in allowed_models:
-            config['enabled'] = False
-            config['sync_enabled'] = False
+        return model_config
+    
+    @classmethod
+    def is_model_enabled(cls, model_name: str) -> bool:
+        """Check if a model is enabled for sync operations"""
+        exclude_models = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS')
+        include_apps = cls.get_config('MODEL_DISCOVERY', 'INCLUDE_APPS')
         
-        if model_name in excluded_models:
-            config['enabled'] = False
-            config['sync_enabled'] = False
+        # Check if model is explicitly excluded
+        if model_name in exclude_models:
+            return False
+        
+        # If INCLUDE_APPS is specified, check if model's app is included
+        if include_apps:
+            app_label = model_name.split('.')[0] if '.' in model_name else model_name
+            if app_label not in include_apps:
+                return False
+        
+        return True
+    
+    @classmethod
+    def get_default_models(cls) -> List[str]:
+        """Get default models for push and pull operations"""
+        return cls.get_all_models()
+    
+    @classmethod
+    def export_config(cls, file_path: str = None) -> Dict[str, Any]:
+        """Export current configuration"""
+        config = {
+            'CORE': cls.CORE,
+            'ADVANCED': cls.ADVANCED,
+            'ERROR': cls.ERROR,
+            'PERFORMANCE': cls.PERFORMANCE,
+            'SECURITY': cls.SECURITY,
+            'MODEL_DISCOVERY': cls.MODEL_DISCOVERY,
+            'DATA_SOURCES': cls.DATA_SOURCES,
+            'PERMISSIONS': cls.PERMISSIONS,
+        }
+        
+        if file_path:
+            with open(file_path, 'w') as f:
+                json.dump(config, f, indent=2)
+            logger.info(f"Configuration exported to {file_path}")
         
         return config
     
     @classmethod
-    def export_config(cls, filepath: Optional[str] = None) -> str:
-        """Export current configuration to JSON file"""
-        config = {
-            'core_settings': {k: cls.get_setting(k) for k in cls.CORE_DEFAULTS},
-            'advanced_settings': {k: cls.get_setting(k) for k in cls.ADVANCED_DEFAULTS},
-            'error_config': cls.get_error_config(),
-            'performance_config': cls.get_performance_config(),
-            'security_config': cls.get_security_config(),
-        }
-        
-        if filepath:
-            with open(filepath, 'w') as f:
-                json.dump(config, f, indent=2)
-            return f"Configuration exported to {filepath}"
-        
-        return json.dumps(config, indent=2)
+    def import_config(cls, config_data: Dict[str, Any]) -> None:
+        """Import configuration from dictionary"""
+        for section, section_data in config_data.items():
+            if hasattr(cls, section.upper()):
+                section_config = getattr(cls, section.upper())
+                section_config.update(section_data)
+                logger.info(f"Configuration section {section} imported")
+            else:
+                logger.warning(f"Unknown configuration section: {section}")
     
     @classmethod
-    def import_config(cls, filepath: str) -> str:
-        """Import configuration from JSON file"""
-        try:
-            with open(filepath, 'r') as f:
-                config = json.load(f)
-            
-            # Update Django settings (this is a simplified approach)
-            # In practice, you'd want to be more careful about this
-            for section, settings_dict in config.items():
-                if section == 'core_settings':
-                    for key, value in settings_dict.items():
-                        setattr(settings, key, value)
-            
-            return f"Configuration imported from {filepath}"
-        except Exception as e:
-            return f"Failed to import configuration: {str(e)}"
+    def validate_config(cls) -> List[str]:
+        """Validate configuration and return errors"""
+        errors = []
+        
+        # Validate core configuration
+        if cls.CORE['DEFAULT_BATCH_SIZE'] > cls.CORE['MAX_BATCH_SIZE']:
+            errors.append("DEFAULT_BATCH_SIZE cannot be greater than MAX_BATCH_SIZE")
+        
+        if cls.CORE['DEFAULT_TIMEOUT'] > cls.CORE['MAX_TIMEOUT']:
+            errors.append("DEFAULT_TIMEOUT cannot be greater than MAX_TIMEOUT")
+        
+        # Validate performance configuration
+        if cls.PERFORMANCE['POOL_SIZE'] > cls.PERFORMANCE['MAX_CONNECTIONS']:
+            errors.append("POOL_SIZE cannot be greater than MAX_CONNECTIONS")
+        
+        # Validate security configuration
+        if cls.SECURITY['RATE_LIMIT_REQUESTS'] <= 0:
+            errors.append("RATE_LIMIT_REQUESTS must be greater than 0")
+        
+        if cls.SECURITY['RATE_LIMIT_WINDOW'] <= 0:
+            errors.append("RATE_LIMIT_WINDOW must be greater than 0")
+        
+        return errors
     
     @classmethod
     def get_config_summary(cls) -> Dict[str, Any]:
-        """Get a summary of current configuration"""
+        """Get configuration summary"""
+        all_models = cls.get_all_models()
+        enabled_models = [model for model in all_models if cls.is_model_enabled(model)]
+        
         return {
-            'core_settings_count': len(cls.CORE_DEFAULTS),
-            'advanced_settings_count': len(cls.ADVANCED_DEFAULTS),
-            'validation_issues': cls.validate_settings(),
-            'performance_enabled': cls.get_setting('SB_SYNC_ENABLE_PERFORMANCE_MONITORING'),
-            'caching_enabled': cls.get_setting('SB_SYNC_ENABLE_CACHE'),
-            'background_tasks_enabled': cls.get_setting('SB_SYNC_ENABLE_BACKGROUND_TASKS'),
-            'authentication_required': cls.get_setting('SB_SYNC_REQUIRE_AUTHENTICATION'),
-            'rate_limiting_enabled': cls.get_setting('SB_SYNC_RATE_LIMIT_PER_MINUTE') > 0,
+            'total_models_discovered': len(all_models),
+            'enabled_models': len(enabled_models),
+            'excluded_models': len(all_models) - len(enabled_models),
+            'auto_discovery_enabled': cls.get_config('MODEL_DISCOVERY', 'AUTO_DISCOVER_MODELS'),
+            'include_apps_count': len(cls.get_config('MODEL_DISCOVERY', 'INCLUDE_APPS')),
+            'exclude_models_count': len(cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS')),
+            'external_sources_enabled': cls.get_config('DATA_SOURCES', 'ENABLE_EXTERNAL_SOURCES'),
+            'dynamic_permissions_enabled': cls.get_config('PERMISSIONS', 'ENABLE_DYNAMIC_PERMISSIONS'),
+            'core_settings_count': len(cls.CORE),
+            'advanced_settings_count': len(cls.ADVANCED),
+            'performance_enabled': cls.get_config('PERFORMANCE', 'ENABLE_MONITORING'),
+            'caching_enabled': cls.get_config('ADVANCED', 'ENABLE_CACHING'),
+            'background_tasks_enabled': cls.get_config('ADVANCED', 'ENABLE_BACKGROUND_TASKS'),
+            'authentication_required': cls.get_config('SECURITY', 'REQUIRE_AUTHENTICATION'),
+            'rate_limiting_enabled': cls.get_config('SECURITY', 'ENABLE_RATE_LIMITING'),
+            'validation_issues': cls.validate_config(),
         }
+    
+    @classmethod
+    def reset_to_defaults(cls) -> None:
+        """Reset configuration to default values"""
+        # This is a simplified reset - in practice, you'd want to be more careful
+        # about which settings to reset
+        pass
 
+# Convenience functions
+def get_config(section: str = None, key: str = None) -> Any:
+    """Get configuration value"""
+    return SyncConfig.get_config(section, key)
 
-# Convenience functions for easier access
-def get_setting(key: str, default: Any = None) -> Any:
-    """Get a setting value"""
-    return SbSyncConfig.get_setting(key, default)
+def set_config(section: str, key: str, value: Any) -> None:
+    """Set configuration value"""
+    SyncConfig.set_config(section, key, value)
 
+def get_all_models() -> List[str]:
+    """Get all models from the application scope"""
+    return SyncConfig.get_all_models()
 
-def get_all_settings() -> Dict[str, Any]:
-    """Get all settings"""
-    return SbSyncConfig.get_all_settings()
+def get_default_models() -> List[str]:
+    """Get default models for push and pull operations"""
+    return SyncConfig.get_default_models()
 
+def is_model_enabled(model_name: str) -> bool:
+    """Check if a model is enabled for sync operations"""
+    return SyncConfig.is_model_enabled(model_name)
 
-def validate_settings() -> List[str]:
-    """Validate settings"""
-    return SbSyncConfig.validate_settings()
+def export_config(file_path: str = None) -> Dict[str, Any]:
+    """Export current configuration"""
+    return SyncConfig.export_config(file_path)
 
+def import_config(config_data: Dict[str, Any]) -> None:
+    """Import configuration from dictionary"""
+    SyncConfig.import_config(config_data)
 
-def get_model_config(model_name: str) -> Dict[str, Any]:
-    """Get model configuration"""
-    return SbSyncConfig.get_model_config(model_name)
-
+def validate_config() -> List[str]:
+    """Validate configuration and return errors"""
+    return SyncConfig.validate_config()
 
 def get_config_summary() -> Dict[str, Any]:
     """Get configuration summary"""
-    return SbSyncConfig.get_config_summary() 
+    return SyncConfig.get_config_summary() 

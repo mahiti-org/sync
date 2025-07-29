@@ -12,7 +12,7 @@ import logging
 import psutil
 import gc
 import time
-import models
+from django.db import models
 
 logger = logging.getLogger('sb_sync')
 

@@ -83,48 +83,88 @@ urlpatterns = [
 
 ```bash
 # Create healthcare organizations
-python manage.py setup_organizations --action create_org --org-name "City General Hospital" --org-slug city-general
-python manage.py setup_organizations --action create_org --org-name "Riverside Medical Center" --org-slug riverside-medical
-python manage.py setup_organizations --action create_org --org-name "Community Health Clinic" --org-slug community-health
+python manage.py setup_organizations --action create_org --org-name "Acme Corporation" --org-slug acme-corp
+python manage.py setup_organizations --action create_org --org-name "Global Retail" --org-slug global-retail
+python manage.py setup_organizations --action create_org --org-name "City University" --org-slug city-university
 ```
 
-### 2. Add Users to Organizations
+### 2. Create Django Groups
 
 ```bash
-# Add users with specific roles
-python manage.py setup_organizations --action add_user --username dr_smith --org-slug city-general --role DOCTOR
-python manage.py setup_organizations --action add_user --username nurse_wilson --org-slug riverside-medical --role NURSE
-python manage.py setup_organizations --action add_user --username lab_tech_garcia --org-slug community-health --role LAB_TECH
+# Create common groups for the application
+python manage.py setup_organizations --action create_groups
 ```
 
-### 3. Setup Complete Healthcare System
+### 3. Add Users to Organizations
 
 ```bash
-# Setup all healthcare organizations with permissions
-python manage.py setup_organizations --action setup_healthcare
+# Add users with specific groups
+python manage.py setup_organizations --action add_user --username john_manager --org-slug acme-corp --group-name Managers
+python manage.py setup_organizations --action add_user --username mary_sales --org-slug global-retail --group-name Sales
+python manage.py setup_organizations --action add_user --username bob_analyst --org-slug city-university --group-name Analysts
 ```
 
-## 👥 User Roles and Permissions
+### 4. Setup Complete Example System
 
-### Available Roles
+```bash
+# Setup all example organizations with groups and permissions
+python manage.py setup_organizations --action setup_example
+```
 
-1. **ADMIN** - Full access to all data (create, read, update, delete)
-2. **DOCTOR** - Can push/pull patient data, treatments (no delete)
-3. **NURSE** - Can push/pull patient visits, treatments (limited access)
-4. **LAB_TECH** - Can push/pull lab investigations only
-5. **PHARMACIST** - Can push/pull medicine disbursed data
-6. **READ_ONLY** - Can only pull data, no push access
+### 5. Dynamic Permission Configuration
+
+```bash
+# Discover all models in your project
+python manage.py dynamic_permissions --action discover
+
+# Discover models from specific app
+python manage.py dynamic_permissions --action discover --app-label myapp
+
+# Generate permission configuration
+python manage.py dynamic_permissions --action generate --org-slug acme-corp --permission-template read_write --output-file permissions.json
+
+# Apply permission configuration
+python manage.py dynamic_permissions --action apply --org-slug acme-corp --config-file permissions.json
+
+# Export current permissions
+python manage.py dynamic_permissions --action export --org-slug acme-corp --output-file current_permissions.json
+
+# Validate configuration file
+python manage.py dynamic_permissions --action validate --config-file permissions.json
+
+# Show available templates
+python manage.py dynamic_permissions --action template
+```
+
+## 👥 User Groups and Permissions
+
+### Using Django Groups
+
+The system uses Django's built-in `auth.Group` system for role-based access control. This makes it completely generic and reusable across any Django project.
+
+### Available Groups
+
+The system comes with common groups that can be customized for any domain:
+
+1. **Administrators** - Full access to all data (create, read, update, delete)
+2. **Managers** - Can push/pull data, create, update (no delete)
+3. **Users** - Can push/pull data, create, update (no delete)
+4. **Analysts** - Can only pull data (read-only access)
+5. **Sales** - Can push/pull sales-related data
+6. **Support** - Can push/pull support-related data
+7. **Read Only** - Can only pull data, no push access
 
 ### Permission Matrix
 
-| Role | Patient | Visit | Treatment | Lab | Medicine | Delete |
-|------|---------|-------|-----------|-----|----------|--------|
-| ADMIN | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Yes |
-| DOCTOR | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ None | ❌ None | ❌ No |
-| NURSE | ❌ Read | ✅ Push/Pull | ✅ Push/Pull | ❌ None | ❌ None | ❌ No |
-| LAB_TECH | ❌ Read | ❌ Read | ❌ Read | ✅ Push/Pull | ❌ None | ❌ No |
-| PHARMACIST | ❌ Read | ❌ Read | ❌ Read | ❌ Read | ✅ Push/Pull | ❌ No |
-| READ_ONLY | ✅ Pull | ✅ Pull | ✅ Pull | ✅ Pull | ✅ Pull | ❌ No |
+| Group | User | Group | ContentType | Session | Delete |
+|-------|------|-------|-------------|---------|--------|
+| Administrators | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Yes |
+| Managers | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
+| Users | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
+| Analysts | ❌ Read | ❌ Read | ❌ Read | ❌ Read | ❌ No |
+| Sales | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
+| Support | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
+| Read Only | ✅ Pull | ✅ Pull | ✅ Pull | ✅ Pull | ❌ No |
 
 ## 📡 API Endpoints
 
@@ -152,9 +192,9 @@ Response (now includes organization info):
     "organizations": [
         {
             "id": 1,
-            "name": "City General Hospital",
-            "slug": "city-general",
-            "role": "DOCTOR"
+            "name": "Acme Corporation",
+            "slug": "acme-corp",
+            "group": "Managers"
         }
     ]
 }
@@ -471,7 +511,7 @@ Sync operations are logged to `logs/sb_sync.log` with daily rotation and 30-day 
 ### Log Format
 
 ```
-2024-01-01 12:00:00 - sb_sync - INFO - PUSH request from user dr_smith in City General Hospital: {"data": [...]}
+2024-01-01 12:00:00 - sb_sync - INFO - PUSH request from user john_manager in Acme Corporation: {"data": [...]}
 ```
 
 ### Health Monitoring
@@ -555,6 +595,43 @@ CacheOptimizer.cache_model_data('key', data, timeout=300)
 
 ## 🔧 Management Commands
 
+### Model Discovery and Default Models
+
+The system automatically discovers all Django models in your application and makes them available for push/pull operations by default. Only specific apps and models are excluded via configuration.
+
+```bash
+# Show model discovery summary
+python manage.py show_models --action summary
+
+# Show all discovered models
+python manage.py show_models --action all
+
+# Show enabled models only
+python manage.py show_models --action enabled
+
+# Show default models for push/pull operations
+python manage.py show_models --action default
+
+# Show detailed model information
+python manage.py show_models --action details --verbose
+
+# Show models from specific app
+python manage.py show_models --action enabled --app-label myapp
+```
+
+**Default Behavior:**
+- ✅ **Auto-discovers all Django models** in your application
+- ✅ **`INCLUDE_APPS`**: List of apps whose models will be synced (empty = all apps)
+- ✅ **`EXCLUDE_MODELS`**: Models within those included apps that will be excluded
+- ✅ **Makes all discovered models available** for push/pull operations
+- ✅ **No configuration required** - works out of the box
+
+**Configuration Options:**
+- `AUTO_DISCOVER_MODELS`: Enable/disable automatic model discovery
+- `INCLUDE_APPS`: List of apps whose models will be synced (empty = all apps)
+- `EXCLUDE_MODELS`: Models within included apps that will be excluded from sync
+- `INCLUDE_CUSTOM_MODELS`: Include custom models from your apps
+
 ### Cleanup Sync Logs
 
 ```bash
@@ -603,16 +680,79 @@ python manage.py manage_config --action reset --force
 
 ```bash
 # Create organization
-python manage.py setup_organizations --action create_org --org-name "Hospital Name" --org-slug hospital-slug
+python manage.py setup_organizations --action create_org --org-name "Acme Corporation" --org-slug acme-corp
 
 # Add user to organization
-python manage.py setup_organizations --action add_user --username username --org-slug hospital-slug --role DOCTOR
+python manage.py setup_organizations --action add_user --username john_manager --org-slug acme-corp --group-name Managers
 
 # Set permissions from config file
-python manage.py setup_organizations --action set_permissions --org-slug hospital-slug --config-file permissions.json
+python manage.py setup_organizations --action set_permissions --org-slug acme-corp --config-file permissions.json
 
-# Setup complete healthcare system
-python manage.py setup_organizations --action setup_healthcare
+# Setup complete example system
+python manage.py setup_organizations --action setup_example
+```
+
+### Dynamic Permission Configuration
+
+```bash
+# Discover all models in your project
+python manage.py dynamic_permissions --action discover
+
+# Generate permission configuration
+python manage.py dynamic_permissions --action generate --org-slug acme-corp --permission-template read_write
+
+# Apply permission configuration
+python manage.py dynamic_permissions --action apply --org-slug acme-corp --config-file permissions.json
+
+# Export current permissions
+python manage.py dynamic_permissions --action export --org-slug acme-corp --output-file current_permissions.json
+
+# Validate configuration file
+python manage.py dynamic_permissions --action validate --config-file permissions.json
+
+# Show available templates
+python manage.py dynamic_permissions --action template
+```
+
+### Dynamic Data Sources
+
+```bash
+# Register external data sources
+python manage.py dynamic_sources --action register --source-type api --source-config '{"base_url": "https://api.example.com"}'
+
+# Discover entities from all sources
+python manage.py dynamic_sources --action discover
+
+# Generate permissions for external sources
+python manage.py dynamic_sources --action generate --org-slug acme-corp --permission-template read_write
+
+# Test data source connectivity
+python manage.py dynamic_sources --action test --source-type api --test-entity users
+
+# Apply permissions to external sources
+python manage.py dynamic_sources --action apply --org-slug acme-corp --config-file external_permissions.json
+```
+
+### Model Discovery and Default Models
+
+```bash
+# Show model discovery summary
+python manage.py show_models --action summary
+
+# Show all discovered models
+python manage.py show_models --action all
+
+# Show enabled models only
+python manage.py show_models --action enabled
+
+# Show default models for push/pull
+python manage.py show_models --action default
+
+# Show detailed model information
+python manage.py show_models --action details --verbose
+
+# Show models from specific app
+python manage.py show_models --action enabled --app-label myapp
 ```
 
 ## 🧪 Testing
@@ -744,6 +884,6 @@ For issues and questions:
 
 ## 🔄 Version History
 
-- **v1.2.0**: Multi-tenant, role-based access control, organization management, healthcare use cases, enhanced performance optimizations, and comprehensive permission system
+- **v1.3.0**: Include-based model discovery, dynamic data sources, enhanced configuration system, improved test coverage, and comprehensive documentation cleanup
 - **v1.1.0**: Enhanced configuration system, performance optimizations, and improved error handling
 - **v1.0.0**: Initial release with PUSH/PULL APIs, JWT authentication, and comprehensive logging 

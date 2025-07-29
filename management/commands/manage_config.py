@@ -3,7 +3,7 @@ from django.conf import settings
 import json
 import os
 from pathlib import Path
-from ...config import SbSyncConfig, get_config_summary
+from ...config import SyncConfig, get_config_summary
 
 
 class Command(BaseCommand):
@@ -66,17 +66,17 @@ class Command(BaseCommand):
         self.stdout.write(f"Showing {section} configuration...")
         
         if section == 'all':
-            config = SbSyncConfig.get_all_settings()
+            config = SyncConfig.export_config()
         elif section == 'core':
-            config = {k: SbSyncConfig.get_setting(k) for k in SbSyncConfig.CORE_DEFAULTS}
+            config = SyncConfig.CORE
         elif section == 'advanced':
-            config = {k: SbSyncConfig.get_setting(k) for k in SbSyncConfig.ADVANCED_DEFAULTS}
+            config = SyncConfig.ADVANCED
         elif section == 'error':
-            config = SbSyncConfig.get_error_config()
+            config = SyncConfig.ERROR
         elif section == 'performance':
-            config = SbSyncConfig.get_performance_config()
+            config = SyncConfig.PERFORMANCE
         elif section == 'security':
-            config = SbSyncConfig.get_security_config()
+            config = SyncConfig.SECURITY
         
         if output_format == 'json':
             self.stdout.write(json.dumps(config, indent=2))
@@ -102,22 +102,22 @@ class Command(BaseCommand):
         
         if section == 'all':
             config = {
-                'core_settings': {k: SbSyncConfig.get_setting(k) for k in SbSyncConfig.CORE_DEFAULTS},
-                'advanced_settings': {k: SbSyncConfig.get_setting(k) for k in SbSyncConfig.ADVANCED_DEFAULTS},
-                'error_config': SbSyncConfig.get_error_config(),
-                'performance_config': SbSyncConfig.get_performance_config(),
-                'security_config': SbSyncConfig.get_security_config(),
+                            'core_settings': SyncConfig.CORE,
+            'advanced_settings': SyncConfig.ADVANCED,
+            'error_config': SyncConfig.ERROR,
+            'performance_config': SyncConfig.PERFORMANCE,
+            'security_config': SyncConfig.SECURITY,
             }
         elif section == 'core':
-            config = {k: SbSyncConfig.get_setting(k) for k in SbSyncConfig.CORE_DEFAULTS}
+            config = SyncConfig.CORE
         elif section == 'advanced':
-            config = {k: SbSyncConfig.get_setting(k) for k in SbSyncConfig.ADVANCED_DEFAULTS}
+            config = SyncConfig.ADVANCED
         elif section == 'error':
-            config = SbSyncConfig.get_error_config()
+            config = SyncConfig.ERROR
         elif section == 'performance':
-            config = SbSyncConfig.get_performance_config()
+            config = SyncConfig.PERFORMANCE
         elif section == 'security':
-            config = SbSyncConfig.get_security_config()
+            config = SyncConfig.SECURITY
         
         try:
             with open(file_path, 'w') as f:
@@ -186,7 +186,7 @@ class Command(BaseCommand):
         """Validate current configuration"""
         self.stdout.write("Validating configuration...")
         
-        issues = SbSyncConfig.validate_settings()
+        issues = SyncConfig.validate_config()
         
         if issues:
             self.stdout.write(self.style.WARNING("Configuration issues found:"))
@@ -225,14 +225,8 @@ class Command(BaseCommand):
         # This is a simplified reset - in practice, you'd want to be more careful
         # about which settings to reset
         try:
-            # Clear custom settings (this is a simplified approach)
-            for key in SbSyncConfig.CORE_DEFAULTS:
-                if hasattr(settings, key):
-                    delattr(settings, key)
-            
-            for key in SbSyncConfig.ADVANCED_DEFAULTS:
-                if hasattr(settings, key):
-                    delattr(settings, key)
+            # Reset to default configuration
+            SyncConfig.reset_to_defaults()
             
             self.stdout.write(self.style.SUCCESS("Configuration reset to defaults"))
         except Exception as e:

@@ -1,9 +1,10 @@
 """
-Multi-tenant and Role-based Access Control for sb-sync
+Multi-tenant and Group-based Access Control for sb-sync
 """
 from django.core.cache import cache
 from django.db.models import Q
 from django.apps import apps
+from django.contrib.auth.models import Group
 from rest_framework import permissions
 from .models import (
     Organization, UserOrganization, ModelPermission, 
@@ -22,7 +23,7 @@ class MultiTenantPermission(permissions.BasePermission):
         if not request.user.is_authenticated:
             return False
         
-        # Get user's organizations and roles
+        # Get user's organizations and groups
         user_orgs = self._get_user_organizations(request.user)
         if not user_orgs:
             return False
@@ -42,7 +43,7 @@ class MultiTenantPermission(permissions.BasePermission):
         return True
     
     def _get_user_organizations(self, user):
-        """Get user's organizations with roles"""
+        """Get user's organizations with groups"""
         cache_key = f"user_organizations_{user.id}"
         user_orgs = cache.get(cache_key)
         
@@ -50,7 +51,7 @@ class MultiTenantPermission(permissions.BasePermission):
             user_orgs = list(UserOrganization.objects.filter(
                 user=user, 
                 is_active=True
-            ).select_related('organization'))
+            ).select_related('organization', 'group'))
             cache.set(cache_key, user_orgs, timeout=300)  # Cache for 5 minutes
         
         return user_orgs
@@ -58,76 +59,87 @@ class MultiTenantPermission(permissions.BasePermission):
 
 class SyncPermission:
     """
-    Utility class for checking sync permissions
+    Utility class for checking sync permissions using Django Groups
     """
     
     @staticmethod
     def can_access_model(user, organization, model_name, operation='read'):
-        """Check if user can access a specific model"""
+        """Check if user can access a specific model based on their groups"""
         cache_key = f"model_permission_{user.id}_{organization.id}_{model_name}_{operation}"
         has_permission = cache.get(cache_key)
         
         if has_permission is None:
             try:
-                permission = ModelPermission.objects.get(
-                    organization=organization,
-                    model_name=model_name,
-                    is_active=True
-                )
+                # Get user's groups in this organization
+                user_groups = SyncPermission.get_user_groups(user, organization)
                 
-                if operation == 'push':
-                    has_permission = permission.can_push
-                elif operation == 'pull':
-                    has_permission = permission.can_pull
-                elif operation == 'create':
-                    has_permission = permission.can_create
-                elif operation == 'update':
-                    has_permission = permission.can_update
-                elif operation == 'delete':
-                    has_permission = permission.can_delete
-                else:  # read
-                    has_permission = permission.can_read
+                # Check if any of user's groups have permission
+                has_permission = False
+                for group in user_groups:
+                    permission = ModelPermission.objects.filter(
+                        organization=organization,
+                        group=group,
+                        model_name=model_name,
+                        is_active=True
+                    ).first()
+                    
+                    if permission:
+                        if operation == 'push':
+                            has_permission = permission.can_push
+                        elif operation == 'pull':
+                            has_permission = permission.can_pull
+                        elif operation == 'create':
+                            has_permission = permission.can_create
+                        elif operation == 'update':
+                            has_permission = permission.can_update
+                        elif operation == 'delete':
+                            has_permission = permission.can_delete
+                        else:  # read
+                            has_permission = permission.can_read
+                        
+                        if has_permission:
+                            break
                 
                 cache.set(cache_key, has_permission, timeout=300)
                 
-            except ModelPermission.DoesNotExist:
+            except Exception:
                 has_permission = False
                 cache.set(cache_key, has_permission, timeout=300)
         
         return has_permission
     
     @staticmethod
-    def get_user_roles(user, organization):
-        """Get user's roles for a specific organization"""
-        cache_key = f"user_roles_{user.id}_{organization.id}"
-        roles = cache.get(cache_key)
+    def get_user_groups(user, organization):
+        """Get user's groups for a specific organization"""
+        cache_key = f"user_groups_{user.id}_{organization.id}"
+        groups = cache.get(cache_key)
         
-        if roles is None:
+        if groups is None:
             user_org = UserOrganization.objects.filter(
                 user=user,
                 organization=organization,
                 is_active=True
             ).first()
             
-            roles = [user_org.role] if user_org else []
-            cache.set(cache_key, roles, timeout=300)
+            groups = [user_org.group] if user_org else []
+            cache.set(cache_key, groups, timeout=300)
         
-        return roles
+        return groups
     
     @staticmethod
     def get_data_filters(user, organization, model_name):
-        """Get data filters for user's role and model"""
+        """Get data filters for user's groups and model"""
         cache_key = f"data_filters_{user.id}_{organization.id}_{model_name}"
         filters = cache.get(cache_key)
         
         if filters is None:
-            user_roles = SyncPermission.get_user_roles(user, organization)
+            user_groups = SyncPermission.get_user_groups(user, organization)
             
             filters = []
-            for role in user_roles:
+            for group in user_groups:
                 model_filters = DataFilter.objects.filter(
                     organization=organization,
-                    role=role,
+                    group=group,
                     model_name=model_name,
                     is_active=True
                 )
@@ -207,10 +219,10 @@ class OrganizationContextMiddleware:
             
             if user_org:
                 request.organization = user_org.organization
-                request.user_role = user_org.role
+                request.user_group = user_org.group
             else:
                 request.organization = None
-                request.user_role = None
+                request.user_group = None
         
         response = self.get_response(request)
         return response
@@ -227,10 +239,10 @@ class MultiTenantMixin:
         return UserOrganization.objects.filter(
             user=user,
             is_active=True
-        ).select_related('organization')
+        ).select_related('organization', 'group')
     
     def check_model_permission(self, user, organization, model_name, operation='read'):
-        """Check if user has permission for a model"""
+        """Check if user has permission for a model based on their groups"""
         return SyncPermission.can_access_model(user, organization, model_name, operation)
     
     def get_filtered_queryset(self, user, organization, model_name, base_queryset):

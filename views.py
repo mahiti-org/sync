@@ -14,6 +14,7 @@ from .serializers import PushDataSerializer, PullRequestSerializer
 from .models import SyncLog, SyncMetadata, Organization, UserOrganization, UserSyncMetadata
 from .permissions import MultiTenantPermission, SyncPermission, MultiTenantMixin
 from .utils import DataProcessor
+from .config import get_config, get_default_models, is_model_enabled
 from .optimizations import (
     QueryOptimizer, BulkOperations, MemoryOptimizer, 
     CacheOptimizer, PerformanceMonitor, AsyncProcessor
@@ -116,6 +117,12 @@ class PushAPIView(APIView, MultiTenantMixin):
         for item_data in json_data:
             model_name = item_data.get('_model')
             if model_name:
+                # Check if model is enabled in configuration
+                if not is_model_enabled(model_name):
+                    results['errors'].append(f"Model {model_name} is not enabled for sync operations")
+                    results['error_count'] += 1
+                    continue
+                
                 if model_name not in model_groups:
                     model_groups[model_name] = []
                 model_groups[model_name].append(item_data)
@@ -240,9 +247,16 @@ class PullAPIView(APIView, MultiTenantMixin):
     
     def _process_pull_request_with_permissions(self, validated_data: dict, user, organization) -> dict:
         """Process pull request with multi-tenant permissions"""
-        models_config = validated_data['models']
+        models_config = validated_data.get('models', {})
+        
+        # If no models specified, use default models from configuration
+        if not models_config:
+            default_models = get_default_models()
+            models_config = {model: None for model in default_models}
+            logger.info(f"No models specified in request, using {len(default_models)} default models")
+        
         batch_size = validated_data.get('batch_size', 
-            getattr(settings, 'SB_SYNC_BATCH_SIZE', 100))
+            get_config('CORE', 'DEFAULT_BATCH_SIZE'))
         
         response_data = {
             'data': [],
@@ -258,6 +272,14 @@ class PullAPIView(APIView, MultiTenantMixin):
         
         for model_name, last_sync_time in models_config.items():
             try:
+                # Check if model is enabled in configuration
+                if not is_model_enabled(model_name):
+                    response_data['metadata'][model_name] = {
+                        'error': f"Model {model_name} is not enabled for sync operations",
+                        'count': 0
+                    }
+                    continue
+                
                 # Check if user has pull permission for this model
                 if not SyncPermission.can_access_model(user, organization, model_name, 'pull'):
                     response_data['metadata'][model_name] = {
@@ -381,11 +403,11 @@ class AuthTokenView(APIView):
         user = authenticate(username=username, password=password)
         
         if user:
-            # Get user's organizations and roles
+            # Get user's organizations and groups
             user_organizations = UserOrganization.objects.filter(
                 user=user,
                 is_active=True
-            ).select_related('organization')
+            ).select_related('organization', 'group')
             
             organizations_data = []
             for user_org in user_organizations:
@@ -393,7 +415,7 @@ class AuthTokenView(APIView):
                     'id': user_org.organization.id,
                     'name': user_org.organization.name,
                     'slug': user_org.organization.slug,
-                    'role': user_org.role
+                    'group': user_org.group.name
                 })
             
             token = JWTAuthentication.generate_token(user)

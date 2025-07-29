@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.utils import timezone
 from django.core.cache import cache
 from django.db.models import Index
@@ -85,7 +85,7 @@ class PerformanceMetrics(models.Model):
 # Multi-tenant and Role-based Access Control Models
 
 class Organization(models.Model):
-    """Represents a hospital, clinic, or healthcare organization"""
+    """Represents any type of organization (company, hospital, school, etc.)"""
     name = models.CharField(max_length=200, unique=True)
     slug = models.CharField(max_length=50, unique=True, db_index=True)
     description = models.TextField(blank=True)
@@ -103,17 +103,10 @@ class Organization(models.Model):
         return self.name
 
 class UserOrganization(models.Model):
-    """Links users to organizations with roles"""
+    """Links users to organizations with Django Groups as roles"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
-    role = models.CharField(max_length=50, choices=[
-        ('ADMIN', 'Administrator'),
-        ('DOCTOR', 'Doctor'),
-        ('NURSE', 'Nurse'),
-        ('LAB_TECH', 'Lab Technician'),
-        ('PHARMACIST', 'Pharmacist'),
-        ('READ_ONLY', 'Read Only'),
-    ], db_index=True)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True, help_text="Django auth group representing the user's role")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -122,17 +115,17 @@ class UserOrganization(models.Model):
         unique_together = ['user', 'organization']
         indexes = [
             models.Index(fields=['user', 'organization']),
-            models.Index(fields=['organization', 'role']),
-            models.Index(fields=['role', 'is_active']),
+            models.Index(fields=['organization', 'group']),
+            models.Index(fields=['group', 'is_active']),
         ]
     
     def __str__(self):
-        return f"{self.user.username} - {self.organization.name} ({self.role})"
+        return f"{self.user.username} - {self.organization.name} ({self.group.name})"
 
 class ModelPermission(models.Model):
-    """Defines which models each role can access"""
+    """Defines which models each group can access"""
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
-    role = models.CharField(max_length=50, db_index=True)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True, help_text="Django auth group")
     model_name = models.CharField(max_length=100, db_index=True)
     can_push = models.BooleanField(default=False)
     can_pull = models.BooleanField(default=False)
@@ -145,15 +138,15 @@ class ModelPermission(models.Model):
     
     class Meta:
         db_table = 'sb_sync_model_permission'
-        unique_together = ['organization', 'role', 'model_name']
+        unique_together = ['organization', 'group', 'model_name']
         indexes = [
-            models.Index(fields=['organization', 'role']),
+            models.Index(fields=['organization', 'group']),
             models.Index(fields=['model_name', 'can_push']),
             models.Index(fields=['model_name', 'can_pull']),
         ]
     
     def __str__(self):
-        return f"{self.organization.name} - {self.role} - {self.model_name}"
+        return f"{self.organization.name} - {self.group.name} - {self.model_name}"
 
 class UserSyncMetadata(models.Model):
     """Track last sync timestamps for models per user/organization"""
@@ -175,21 +168,21 @@ class UserSyncMetadata(models.Model):
         return f"{self.user.username} - {self.organization.name} - {self.model_name}"
 
 class DataFilter(models.Model):
-    """Custom data filters for role-based access"""
+    """Custom data filters for group-based access"""
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
-    role = models.CharField(max_length=50, db_index=True)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True, help_text="Django auth group")
     model_name = models.CharField(max_length=100, db_index=True)
     filter_name = models.CharField(max_length=100)
-    filter_condition = models.JSONField()  # e.g., {"field": "patient_id", "operator": "in", "value": [1,2,3]}
+    filter_condition = models.JSONField()  # e.g., {"field": "department", "operator": "exact", "value": "SALES"}
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         db_table = 'sb_sync_data_filter'
         indexes = [
-            models.Index(fields=['organization', 'role', 'model_name']),
+            models.Index(fields=['organization', 'group', 'model_name']),
             models.Index(fields=['model_name', 'is_active']),
         ]
     
     def __str__(self):
-        return f"{self.organization.name} - {self.role} - {self.model_name} - {self.filter_name}"
+        return f"{self.organization.name} - {self.group.name} - {self.model_name} - {self.filter_name}"
