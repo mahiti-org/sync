@@ -62,7 +62,7 @@ class Command(BaseCommand):
         self.stdout.write(f"⚙️  Auto Discovery: {'Enabled' if summary['auto_discovery_enabled'] else 'Disabled'}")
         self.stdout.write(f"📦 Include Apps Count: {summary['include_apps_count']}")
         self.stdout.write(f"🚫 Exclude Models Count: {summary['exclude_models_count']}")
-        self.stdout.write(f"🔗 External Sources: {'Enabled' if summary['external_sources_enabled'] else 'Disabled'}")
+
         self.stdout.write(f"🔐 Dynamic Permissions: {'Enabled' if summary['dynamic_permissions_enabled'] else 'Disabled'}")
 
     def show_all_models(self, app_label=None, verbose=False):

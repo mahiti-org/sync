@@ -714,24 +714,7 @@ python manage.py dynamic_permissions --action validate --config-file permissions
 python manage.py dynamic_permissions --action template
 ```
 
-### Dynamic Data Sources
 
-```bash
-# Register external data sources
-python manage.py dynamic_sources --action register --source-type api --source-config '{"base_url": "https://api.example.com"}'
-
-# Discover entities from all sources
-python manage.py dynamic_sources --action discover
-
-# Generate permissions for external sources
-python manage.py dynamic_sources --action generate --org-slug acme-corp --permission-template read_write
-
-# Test data source connectivity
-python manage.py dynamic_sources --action test --source-type api --test-entity users
-
-# Apply permissions to external sources
-python manage.py dynamic_sources --action apply --org-slug acme-corp --config-file external_permissions.json
-```
 
 ### Model Discovery and Default Models
 
@@ -884,6 +867,7 @@ For issues and questions:
 
 ## 🔄 Version History
 
-- **v1.3.0**: Include-based model discovery, dynamic data sources, enhanced configuration system, improved test coverage, and comprehensive documentation cleanup
+- **v1.4.0**: Removed dynamic data sources functionality, streamlined package for Django model synchronization, improved code organization and documentation cleanup
+- **v1.3.0**: Include-based model discovery, enhanced configuration system, improved test coverage, and comprehensive documentation cleanup
 - **v1.1.0**: Enhanced configuration system, performance optimizations, and improved error handling
 - **v1.0.0**: Initial release with PUSH/PULL APIs, JWT authentication, and comprehensive logging 

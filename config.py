@@ -108,17 +108,7 @@ class SyncConfig:
         'MODEL_NAMESPACE': '',
     }
     
-    # Data Source Configuration
-    DATA_SOURCES = {
-        'ENABLE_EXTERNAL_SOURCES': True,
-        'AUTO_REGISTER_SOURCES': True,
-        'EXTERNAL_SOURCE_TYPES': ['api', 'database', 'file'],
-        'DEFAULT_API_TIMEOUT': 30,
-        'DEFAULT_DB_TIMEOUT': 60,
-        'DEFAULT_FILE_TIMEOUT': 30,
-        'ENABLE_SOURCE_CACHING': True,
-        'SOURCE_CACHE_TIMEOUT': 3600,
-    }
+
     
     # Permission Configuration
     PERMISSIONS = {
@@ -142,7 +132,7 @@ class SyncConfig:
                 'PERFORMANCE': cls.PERFORMANCE,
                 'SECURITY': cls.SECURITY,
                 'MODEL_DISCOVERY': cls.MODEL_DISCOVERY,
-                'DATA_SOURCES': cls.DATA_SOURCES,
+
                 'PERMISSIONS': cls.PERMISSIONS,
             }
         
@@ -247,7 +237,7 @@ class SyncConfig:
             'PERFORMANCE': cls.PERFORMANCE,
             'SECURITY': cls.SECURITY,
             'MODEL_DISCOVERY': cls.MODEL_DISCOVERY,
-            'DATA_SOURCES': cls.DATA_SOURCES,
+
             'PERMISSIONS': cls.PERMISSIONS,
         }
         
@@ -307,7 +297,7 @@ class SyncConfig:
             'auto_discovery_enabled': cls.get_config('MODEL_DISCOVERY', 'AUTO_DISCOVER_MODELS'),
             'include_apps_count': len(cls.get_config('MODEL_DISCOVERY', 'INCLUDE_APPS')),
             'exclude_models_count': len(cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS')),
-            'external_sources_enabled': cls.get_config('DATA_SOURCES', 'ENABLE_EXTERNAL_SOURCES'),
+
             'dynamic_permissions_enabled': cls.get_config('PERMISSIONS', 'ENABLE_DYNAMIC_PERMISSIONS'),
             'core_settings_count': len(cls.CORE),
             'advanced_settings_count': len(cls.ADVANCED),
