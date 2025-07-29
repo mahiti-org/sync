@@ -11,7 +11,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .authentication import JWTAuthentication
 from .serializers import PushDataSerializer, PullRequestSerializer
-from .models import SyncLog, SyncMetadata
+from .models import SyncLog, SyncMetadata, Organization, UserOrganization, UserSyncMetadata
+from .permissions import MultiTenantPermission, SyncPermission, MultiTenantMixin
 from .utils import DataProcessor
 from .optimizations import (
     QueryOptimizer, BulkOperations, MemoryOptimizer, 
@@ -26,12 +27,13 @@ import time
 
 logger = logging.getLogger('sb_sync')
 
-class PushAPIView(APIView):
+class PushAPIView(APIView, MultiTenantMixin):
     """
     PUSH API - Accepts JSON data and stores it in appropriate Django models
+    Now with multi-tenant and role-based access control
     """
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, MultiTenantPermission]
     
     @handle_errors
     @retry_on_error
@@ -41,8 +43,16 @@ class PushAPIView(APIView):
     def post(self, request):
         start_time = time.time()
         
+        # Get user's organization context
+        organization = getattr(request, 'organization', None)
+        if not organization:
+            raise ValidationError(
+                'User is not associated with any organization',
+                context={'user_id': request.user.id}
+            )
+        
         # Log incoming request
-        logger.info(f"PUSH request from user {request.user.username}: {json.dumps(request.data)}")
+        logger.info(f"PUSH request from user {request.user.username} in {organization.name}: {json.dumps(request.data)}")
         
         # Validate request data
         serializer = PushDataSerializer(data=request.data)
@@ -52,11 +62,12 @@ class PushAPIView(APIView):
                 context={'serializer_errors': serializer.errors}
             )
         
-        # Process the data with optimized bulk operations
+        # Process the data with multi-tenant permissions
         results = retry_handler.retry(
-            self._process_push_data_optimized,
+            self._process_push_data_with_permissions,
             serializer.validated_data['data'], 
-            request.user
+            request.user,
+            organization
         )
         
         # Handle partial success
@@ -89,8 +100,8 @@ class PushAPIView(APIView):
         
         return Response(response_data, status=status.HTTP_200_OK)
     
-    def _process_push_data_optimized(self, json_data, user):
-        """Optimized push data processing with bulk operations"""
+    def _process_push_data_with_permissions(self, json_data, user, organization):
+        """Process push data with multi-tenant permissions"""
         start_time = time.time()
         results = {
             'success_count': 0,
@@ -109,18 +120,35 @@ class PushAPIView(APIView):
                     model_groups[model_name] = []
                 model_groups[model_name].append(item_data)
         
-        # Process each model group with bulk operations
+        # Process each model group with permissions
         for model_name, model_data in model_groups.items():
             try:
+                # Check if user has push permission for this model
+                if not SyncPermission.can_access_model(user, organization, model_name, 'push'):
+                    results['errors'].append(
+                        f"User {user.username} does not have push permission for {model_name} in {organization.name}"
+                    )
+                    results['error_count'] += len(model_data)
+                    continue
+                
                 model_class = apps.get_model(model_name)
+                
+                # Apply organization filter to data
+                filtered_data = self._apply_organization_filter(model_data, organization)
                 
                 # Use bulk operations for better performance
                 bulk_results = BulkOperations.bulk_create_or_update(
-                    model_class, model_data, batch_size=1000
+                    model_class, filtered_data, batch_size=1000
                 )
                 
                 results['success_count'] += bulk_results['created'] + bulk_results['updated']
                 results['processed_models'][model_name] = bulk_results
+                
+                # Update user sync metadata
+                SyncPermission.update_user_sync_metadata(
+                    user, organization, model_name, 
+                    bulk_results['created'] + bulk_results['updated']
+                )
                 
             except Exception as e:
                 results['errors'].append(f"Error processing model {model_name}: {str(e)}")
@@ -129,6 +157,17 @@ class PushAPIView(APIView):
         results['processing_time'] = time.time() - start_time
         return results
     
+    def _apply_organization_filter(self, model_data, organization):
+        """Apply organization filter to data"""
+        filtered_data = []
+        
+        for item in model_data:
+            # Add organization context to each item
+            item['organization'] = organization.id
+            filtered_data.append(item)
+        
+        return filtered_data
+    
     def log_sync_operation(self, **kwargs):
         """Log sync operation to database"""
         try:
@@ -136,12 +175,13 @@ class PushAPIView(APIView):
         except Exception as e:
             logger.error(f"Failed to log sync operation: {str(e)}")
 
-class PullAPIView(APIView):
+class PullAPIView(APIView, MultiTenantMixin):
     """
     PULL API - Returns JSON data based on configuration and timestamps
+    Now with multi-tenant and role-based access control
     """
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, MultiTenantPermission]
     
     @handle_errors
     @retry_on_error
@@ -151,6 +191,14 @@ class PullAPIView(APIView):
     def post(self, request):
         start_time = time.time()
         
+        # Get user's organization context
+        organization = getattr(request, 'organization', None)
+        if not organization:
+            raise ValidationError(
+                'User is not associated with any organization',
+                context={'user_id': request.user.id}
+            )
+        
         # Validate request data
         serializer = PullRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -159,11 +207,12 @@ class PullAPIView(APIView):
                 context={'serializer_errors': serializer.errors}
             )
         
-        # Process request with optimized query handling
+        # Process request with multi-tenant permissions
         response_data = retry_handler.retry(
-            self._process_pull_request_optimized,
+            self._process_pull_request_with_permissions,
             serializer.validated_data,
-            request.user
+            request.user,
+            organization
         )
         
         # Track performance metrics
@@ -185,12 +234,12 @@ class PullAPIView(APIView):
             processing_time=processing_time
         )
         
-        logger.info(f"PULL request completed for user {request.user.username}: {response_data['batch_info']['total_records']} records")
+        logger.info(f"PULL request completed for user {request.user.username} in {organization.name}: {response_data['batch_info']['total_records']} records")
         
         return Response(response_data, status=status.HTTP_200_OK)
     
-    def _process_pull_request_optimized(self, validated_data: dict, user) -> dict:
-        """Optimized pull request processing with caching and query optimization"""
+    def _process_pull_request_with_permissions(self, validated_data: dict, user, organization) -> dict:
+        """Process pull request with multi-tenant permissions"""
         models_config = validated_data['models']
         batch_size = validated_data.get('batch_size', 
             getattr(settings, 'SB_SYNC_BATCH_SIZE', 100))
@@ -209,8 +258,20 @@ class PullAPIView(APIView):
         
         for model_name, last_sync_time in models_config.items():
             try:
+                # Check if user has pull permission for this model
+                if not SyncPermission.can_access_model(user, organization, model_name, 'pull'):
+                    response_data['metadata'][model_name] = {
+                        'error': f"User {user.username} does not have pull permission for {model_name} in {organization.name}",
+                        'count': 0
+                    }
+                    continue
+                
+                # Get user's last sync time for this model
+                user_metadata = SyncPermission.get_user_sync_metadata(user, organization, model_name)
+                user_last_sync = user_metadata.last_sync
+                
                 # Check cache first
-                cache_key = f"pull_data_{model_name}_{last_sync_time}"
+                cache_key = f"pull_data_{user.id}_{organization.id}_{model_name}_{user_last_sync}"
                 cached_data = CacheOptimizer.get_cached_model_data(cache_key)
                 
                 if cached_data:
@@ -222,17 +283,25 @@ class PullAPIView(APIView):
                 # Get model class
                 model_class = apps.get_model(model_name)
                 
-                # Build optimized query
+                # Build base queryset
                 queryset = model_class.objects.all()
                 
+                # Apply organization filter
+                if hasattr(model_class, 'organization'):
+                    queryset = queryset.filter(organization=organization)
+                
+                # Apply user-specific data filters
+                filters = SyncPermission.get_data_filters(user, organization, model_name)
+                queryset = SyncPermission.apply_filters_to_queryset(queryset, filters)
+                
                 # Filter by timestamp if provided
-                if last_sync_time:
+                if user_last_sync:
                     # Assume models have created_at/updated_at fields
                     timestamp_filter = Q()
                     if hasattr(model_class, 'created_at'):
-                        timestamp_filter |= Q(created_at__gt=last_sync_time)
+                        timestamp_filter |= Q(created_at__gt=user_last_sync)
                     if hasattr(model_class, 'updated_at'):
-                        timestamp_filter |= Q(updated_at__gt=last_sync_time)
+                        timestamp_filter |= Q(updated_at__gt=user_last_sync)
                     
                     if timestamp_filter:
                         queryset = queryset.filter(timestamp_filter)
@@ -252,7 +321,8 @@ class PullAPIView(APIView):
                 # Update metadata
                 model_metadata = {
                     'count': len(model_data),
-                    'last_sync': timezone.now().isoformat()
+                    'last_sync': timezone.now().isoformat(),
+                    'user_last_sync': user_last_sync.isoformat() if user_last_sync else None
                 }
                 response_data['metadata'][model_name] = model_metadata
                 
@@ -266,8 +336,8 @@ class PullAPIView(APIView):
                 
                 total_records += len(model_data)
                 
-                # Update sync metadata with bulk operation
-                self._update_sync_metadata_bulk(model_name, len(model_data))
+                # Update user sync metadata
+                SyncPermission.update_user_sync_metadata(user, organization, model_name, len(model_data))
                 
             except LookupError:
                 logger.warning(f"Model '{model_name}' not found")
@@ -284,20 +354,6 @@ class PullAPIView(APIView):
         
         response_data['batch_info']['total_records'] = total_records
         return response_data
-    
-    def _update_sync_metadata_bulk(self, model_name, count):
-        """Update sync metadata with bulk operation"""
-        try:
-            sync_metadata, created = SyncMetadata.objects.get_or_create(
-                model_name=model_name,
-                defaults={'total_synced': count}
-            )
-            if not created:
-                sync_metadata.total_synced += count
-                sync_metadata.last_sync = timezone.now()
-                sync_metadata.save()
-        except Exception as e:
-            logger.error(f"Error updating sync metadata for {model_name}: {str(e)}")
     
     def log_sync_operation(self, **kwargs):
         """Log sync operation to database"""
@@ -325,6 +381,21 @@ class AuthTokenView(APIView):
         user = authenticate(username=username, password=password)
         
         if user:
+            # Get user's organizations and roles
+            user_organizations = UserOrganization.objects.filter(
+                user=user,
+                is_active=True
+            ).select_related('organization')
+            
+            organizations_data = []
+            for user_org in user_organizations:
+                organizations_data.append({
+                    'id': user_org.organization.id,
+                    'name': user_org.organization.name,
+                    'slug': user_org.organization.slug,
+                    'role': user_org.role
+                })
+            
             token = JWTAuthentication.generate_token(user)
             return Response({
                 'token': token,
@@ -332,7 +403,8 @@ class AuthTokenView(APIView):
                     'id': user.id,
                     'username': user.username,
                     'email': user.email
-                }
+                },
+                'organizations': organizations_data
             })
         else:
             raise AuthenticationError(
@@ -382,11 +454,10 @@ class PerformanceView(APIView):
         # Check cache hit rate
         cache_hits = cache.get('cache_hits', 0)
         cache_misses = cache.get('cache_misses', 0)
-        total_cache_requests = cache_hits + cache_misses
         
-        if total_cache_requests > 0:
-            hit_rate = cache_hits / total_cache_requests
+        if cache_hits + cache_misses > 0:
+            hit_rate = cache_hits / (cache_hits + cache_misses)
             if hit_rate < 0.7:  # 70% threshold
-                suggestions.append("Low cache hit rate. Consider adjusting cache TTL or keys.")
+                suggestions.append("Low cache hit rate. Consider adjusting cache settings.")
         
         return suggestions
