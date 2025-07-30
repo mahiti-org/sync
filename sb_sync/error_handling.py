@@ -394,8 +394,8 @@ class ErrorReportingHandler:
     
     def __init__(self):
         self.logger = logging.getLogger('sb_sync.reporting')
-        self.enable_alerts = SyncConfig.get_config('ERROR', 'ENABLE_ALERTS', False)
-        self.alert_webhook = SyncConfig.get_config('ERROR', 'ALERT_WEBHOOK_URL')
+        self.enable_alerts = False
+        self.alert_webhook = None
     
     def report_error(self, error: SyncError, context: Dict[str, Any] = None):
         """Report error through configured channels"""
