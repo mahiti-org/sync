@@ -20,11 +20,28 @@ A robust Django package for data synchronization with PUSH/PULL APIs, featuring 
 ## 📋 Requirements
 
 - Python >= 3.8
-- Django >= 3.2
+- Django >= 3.2, < 5.3 (supports Django 3.2, 4.0, 4.1, 4.2, 5.0, 5.1, 5.2)
 - Django REST Framework >= 3.14.0
 - PyJWT >= 2.6.0
 - Django Simple History >= 3.4.0 (for audit trails)
 - Celery (for background tasks)
+
+## 🔧 Django Compatibility
+
+This package is designed to work with a wide range of Django versions:
+
+| Django Version | Status | Support Level |
+|----------------|--------|---------------|
+| 3.2.x | ✅ Supported | LTS (Long Term Support) |
+| 4.0.x | ✅ Supported | Standard |
+| 4.1.x | ✅ Supported | Standard |
+| 4.2.x | ✅ Supported | LTS (Long Term Support) |
+| 5.0.x | ✅ Supported | Standard |
+| 5.1.x | ✅ Supported | Standard |
+| 5.2.x | ✅ Supported | Standard |
+| 5.3.x | ❌ Not yet | Future versions |
+
+**Note**: The package is tested against Django LTS versions and the latest stable releases. For production use, we recommend using Django LTS versions (3.2.x, 4.2.x) for maximum stability.
 
 ## 🛠️ Installation
 

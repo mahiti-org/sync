@@ -34,6 +34,20 @@ The SB Sync package now includes a comprehensive web-based configuration interfa
 - **Performance Analysis**: Automatic suggestions for optimization
 - **Export Data**: Download performance data as CSV
 
+## 🔧 Django Compatibility
+
+This web interface is compatible with Django versions 3.2.x through 5.2.x:
+
+| Django Version | Status | Notes |
+|----------------|--------|-------|
+| 3.2.x | ✅ Supported | LTS version |
+| 4.0.x | ✅ Supported | Standard |
+| 4.1.x | ✅ Supported | Standard |
+| 4.2.x | ✅ Supported | LTS version |
+| 5.0.x | ✅ Supported | Standard |
+| 5.1.x | ✅ Supported | Standard |
+| 5.2.x | ✅ Supported | Latest stable |
+
 ## 🛠️ Installation & Setup
 
 ### 1. Add to Django Settings
