@@ -121,12 +121,12 @@ class ErrorHandler:
     def __init__(self):
         self.logger = logging.getLogger('sb_sync.errors')
         self.error_counts = {}
-        self.retry_config = SyncConfig.get_config('ERROR', 'RETRY_CONFIG', {
+        self.retry_config = {
             'max_retries': 3,
             'base_delay': 1,
             'max_delay': 60,
             'backoff_factor': 2,
-        })
+        }
     
     def handle_error(self, error: Exception, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """Handle an error and return error response"""
