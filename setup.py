@@ -13,7 +13,7 @@ def read_requirements(filename):
 
 setup(
     name='sb-sync',
-    version='1.5.0',
+    version='1.5.1',
     description='Django package for data synchronization with PUSH/PULL APIs',
     long_description=read_readme(),
     long_description_content_type='text/markdown',
@@ -39,6 +39,8 @@ setup(
         'Framework :: Django :: 4.1',
         'Framework :: Django :: 4.2',
         'Framework :: Django :: 5.0',
+        'Framework :: Django :: 5.1',
+        'Framework :: Django :: 5.2',
         'Topic :: Database',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
         'Topic :: Software Development :: Libraries :: Python Modules',
@@ -47,7 +49,7 @@ setup(
     ],
     python_requires='>=3.8',
     install_requires=[
-        'Django>=3.2,<5.1',
+        'Django>=3.2,<5.3',
         'djangorestframework>=3.14.0',
         'PyJWT>=2.6.0',
         'python-json-logger>=2.0.4',
