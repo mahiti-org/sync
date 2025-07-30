@@ -1,0 +1,396 @@
+{% extends 'sb_sync/base.html' %}
+
+{% block title %}Performance Metrics - SB Sync Configuration{% endblock %}
+{% block page_title %}Performance Metrics{% endblock %}
+
+{% block page_actions %}
+<div class="btn-group" role="group">
+    <button type="button" class="btn btn-outline-primary" id="refreshMetricsBtn">
+        <i class="fas fa-sync-alt me-1"></i>Refresh
+    </button>
+    <button type="button" class="btn btn-outline-secondary" id="exportMetricsBtn">
+        <i class="fas fa-download me-1"></i>Export
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ total_metrics }}</div>
+                <div class="stats-label">Total Metrics</div>
+                <i class="fas fa-chart-line fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ metrics|length }}</div>
+                <div class="stats-label">Recent Metrics</div>
+                <i class="fas fa-clock fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">
+                    {% for metric in metrics %}
+                        {% if metric.operation_type == 'PUSH' %}
+                            {{ forloop.counter }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="stats-label">Push Operations</div>
+                <i class="fas fa-upload fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">
+                    {% for metric in metrics %}
+                        {% if metric.operation_type == 'PULL' %}
+                            {{ forloop.counter }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="stats-label">Pull Operations</div>
+                <i class="fas fa-download fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance Chart -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-area me-2"></i>
+                    Performance Trends
+                </h5>
+                <small class="text-muted">Processing time and throughput over time</small>
+            </div>
+            <div class="card-body">
+                <canvas id="performanceChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Metrics Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-table me-2"></i>
+                    Recent Performance Metrics
+                </h5>
+                <small class="text-muted">Detailed performance data for recent operations</small>
+            </div>
+            <div class="card-body">
+                {% if metrics %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="metricsTable">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Operation</th>
+                                    <th>Model</th>
+                                    <th>Batch Size</th>
+                                    <th>Processing Time</th>
+                                    <th>Memory Usage</th>
+                                    <th>Query Count</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for metric in metrics %}
+                                <tr>
+                                    <td>
+                                        <small>{{ metric.timestamp|date:"M d, Y H:i:s" }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if metric.operation_type == 'PUSH' %}primary{% else %}info{% endif %}">
+                                            {{ metric.operation_type }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if metric.model_name %}
+                                            <code>{{ metric.model_name }}</code>
+                                        {% else %}
+                                            <span class="text-muted">Multiple</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ metric.batch_size }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ metric.processing_time|floatformat:2 }}s</small>
+                                    </td>
+                                    <td>
+                                        {% if metric.memory_usage %}
+                                            <small>{{ metric.memory_usage|floatformat:1 }} MB</small>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ metric.query_count }}</span>
+                                    </td>
+                                    <td>
+                                        {% if metric.processing_time < 1.0 %}
+                                            <span class="badge bg-success">Excellent</span>
+                                        {% elif metric.processing_time < 5.0 %}
+                                            <span class="badge bg-warning">Good</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Slow</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-chart-line fa-3x mb-3"></i>
+                        <p>No performance metrics found</p>
+                        <small>Performance data will appear here after sync operations</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance Summary -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-tachometer-alt me-2"></i>
+                    Performance Summary
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="stats-number text-success">
+                            {% for metric in metrics %}
+                                {% if metric.processing_time < 1.0 %}
+                                    {{ forloop.counter }}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="stats-label">Fast (< 1s)</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stats-number text-warning">
+                            {% for metric in metrics %}
+                                {% if metric.processing_time >= 1.0 and metric.processing_time < 5.0 %}
+                                    {{ forloop.counter }}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="stats-label">Good (1-5s)</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stats-number text-danger">
+                            {% for metric in metrics %}
+                                {% if metric.processing_time >= 5.0 %}
+                                    {{ forloop.counter }}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="stats-label">Slow (> 5s)</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stats-number text-info">
+                            {% for metric in metrics %}
+                                {% if metric.query_count > 10 %}
+                                    {{ forloop.counter }}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <div class="stats-label">High Query Count</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-cogs me-2"></i>
+                    Optimization Suggestions
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-database text-primary me-2"></i>
+                            <strong>Database Indexing</strong>
+                            <br>
+                            <small class="text-muted">Consider adding indexes for frequently queried fields</small>
+                        </div>
+                        <span class="badge bg-info">Recommended</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-memory text-warning me-2"></i>
+                            <strong>Memory Optimization</strong>
+                            <br>
+                            <small class="text-muted">Monitor memory usage for large batch operations</small>
+                        </div>
+                        <span class="badge bg-warning">Monitor</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-network-wired text-success me-2"></i>
+                            <strong>Connection Pooling</strong>
+                            <br>
+                            <small class="text-muted">Database connections are properly managed</small>
+                        </div>
+                        <span class="badge bg-success">Good</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Refresh metrics
+    $('#refreshMetricsBtn').click(function() {
+        location.reload();
+    });
+    
+    // Export metrics
+    $('#exportMetricsBtn').click(function() {
+        let csv = 'Timestamp,Operation,Model,Batch Size,Processing Time,Memory Usage,Query Count\n';
+        $('#metricsTable tbody tr').each(function() {
+            const cells = $(this).find('td');
+            const row = [
+                cells.eq(0).text().trim(),
+                cells.eq(1).text().trim(),
+                cells.eq(2).text().trim(),
+                cells.eq(3).text().trim(),
+                cells.eq(4).text().trim(),
+                cells.eq(5).text().trim(),
+                cells.eq(6).text().trim()
+            ];
+            csv += row.join(',') + '\n';
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'performance_metrics.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+    
+    // Performance chart
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    const chartData = {
+        labels: [
+            {% for metric in metrics|slice:":10" %}
+                '{{ metric.timestamp|date:"H:i" }}'{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Processing Time (seconds)',
+            data: [
+                {% for metric in metrics|slice:":10" %}
+                    {{ metric.processing_time }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+        }, {
+            label: 'Batch Size',
+            data: [
+                {% for metric in metrics|slice:":10" %}
+                    {{ metric.batch_size }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            ],
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            tension: 0.1,
+            yAxisID: 'y1'
+        }]
+    };
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: chartData,
+        options: {
+            responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Processing Time (seconds)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Batch Size'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+    
+    // Auto-refresh every 60 seconds
+    setInterval(function() {
+        if (document.visibilityState === 'visible') {
+            $('#refreshMetricsBtn').click();
+        }
+    }, 60000);
+});
+</script>
+{% endblock %} 

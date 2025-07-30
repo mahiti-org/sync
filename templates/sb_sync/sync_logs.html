@@ -1,0 +1,268 @@
+{% extends 'sb_sync/base.html' %}
+
+{% block title %}Sync Logs - SB Sync Configuration{% endblock %}
+{% block page_title %}Sync Logs{% endblock %}
+
+{% block page_actions %}
+<div class="btn-group" role="group">
+    <button type="button" class="btn btn-outline-primary" id="refreshLogsBtn">
+        <i class="fas fa-sync-alt me-1"></i>Refresh
+    </button>
+    <button type="button" class="btn btn-outline-secondary" id="exportLogsBtn">
+        <i class="fas fa-download me-1"></i>Export
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ total_logs }}</div>
+                <div class="stats-label">Total Logs</div>
+                <i class="fas fa-list-alt fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ logs|length }}</div>
+                <div class="stats-label">Recent Logs</div>
+                <i class="fas fa-clock fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">
+                    {% for log in logs %}
+                        {% if log.status == 'SUCCESS' %}
+                            {{ forloop.counter }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="stats-label">Successful</div>
+                <i class="fas fa-check-circle fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">
+                    {% for log in logs %}
+                        {% if log.status == 'ERROR' %}
+                            {{ forloop.counter }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="stats-label">Errors</div>
+                <i class="fas fa-exclamation-triangle fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Logs Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list-alt me-2"></i>
+                    Recent Sync Operations
+                </h5>
+                <small class="text-muted">Showing the last 100 sync operations</small>
+            </div>
+            <div class="card-body">
+                {% if logs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="logsTable">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Operation</th>
+                                    <th>Model</th>
+                                    <th>Status</th>
+                                    <th>Records</th>
+                                    <th>Duration</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr>
+                                    <td>
+                                        <small>{{ log.timestamp|date:"M d, Y H:i:s" }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-user text-primary me-2"></i>
+                                            <span>{{ log.user.username }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if log.operation == 'PUSH' %}primary{% else %}info{% endif %}">
+                                            {{ log.operation }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if log.model_name %}
+                                            <code>{{ log.model_name }}</code>
+                                        {% else %}
+                                            <span class="text-muted">Multiple</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if log.status == 'SUCCESS' %}success{% elif log.status == 'ERROR' %}danger{% else %}warning{% endif %}">
+                                            {{ log.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ log.object_count }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ log.processing_time|floatformat:2 }}s</small>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                onclick="showLogDetails('{{ log.id }}')"
+                                                title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-list-alt fa-3x mb-3"></i>
+                        <p>No sync logs found</p>
+                        <small>Sync operations will appear here</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Log Details Modal -->
+<div class="modal fade" id="logDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sync Log Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="logDetailsContent">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Refresh logs
+    $('#refreshLogsBtn').click(function() {
+        location.reload();
+    });
+    
+    // Export logs
+    $('#exportLogsBtn').click(function() {
+        // Simple CSV export
+        let csv = 'Timestamp,User,Operation,Model,Status,Records,Duration\n';
+        $('#logsTable tbody tr').each(function() {
+            const cells = $(this).find('td');
+            const row = [
+                cells.eq(0).text().trim(),
+                cells.eq(1).text().trim(),
+                cells.eq(2).text().trim(),
+                cells.eq(3).text().trim(),
+                cells.eq(4).text().trim(),
+                cells.eq(5).text().trim(),
+                cells.eq(6).text().trim()
+            ];
+            csv += row.join(',') + '\n';
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'sync_logs.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+    
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        // Only refresh if user is on this page
+        if (document.visibilityState === 'visible') {
+            $('#refreshLogsBtn').click();
+        }
+    }, 30000);
+});
+
+function showLogDetails(logId) {
+    // This would typically make an AJAX call to get detailed log info
+    // For now, we'll show a placeholder
+    $('#logDetailsContent').html(`
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+            <p>Loading log details...</p>
+        </div>
+    `);
+    $('#logDetailsModal').modal('show');
+    
+    // Simulate loading detailed log information
+    setTimeout(function() {
+        $('#logDetailsContent').html(`
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Basic Information</h6>
+                    <table class="table table-sm">
+                        <tr><td>Log ID:</td><td>${logId}</td></tr>
+                        <tr><td>Timestamp:</td><td>${new Date().toLocaleString()}</td></tr>
+                        <tr><td>Operation:</td><td>PUSH</td></tr>
+                        <tr><td>Status:</td><td><span class="badge bg-success">SUCCESS</span></td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Performance</h6>
+                    <table class="table table-sm">
+                        <tr><td>Processing Time:</td><td>1.23s</td></tr>
+                        <tr><td>Records Processed:</td><td>150</td></tr>
+                        <tr><td>Memory Usage:</td><td>45.2 MB</td></tr>
+                        <tr><td>Query Count:</td><td>12</td></tr>
+                    </table>
+                </div>
+            </div>
+            <hr>
+            <h6>Request Data</h6>
+            <pre class="bg-light p-3 rounded"><code>{
+  "data": [
+    {"_model": "myapp.Product", "name": "Sample Product", "price": 29.99}
+  ],
+  "batch_size": 1000
+}</code></pre>
+        `);
+    }, 1000);
+}
+</script>
+{% endblock %} 

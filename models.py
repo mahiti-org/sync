@@ -3,6 +3,8 @@ from django.contrib.auth.models import User, Group
 from django.utils import timezone
 from django.core.cache import cache
 from django.db.models import Index
+from simple_history.models import HistoricalRecords
+from simple_history import register
 
 class SyncLog(models.Model):
     OPERATION_CHOICES = [
@@ -25,6 +27,13 @@ class SyncLog(models.Model):
     request_data = models.JSONField(blank=True, null=True)
     timestamp = models.DateTimeField(default=timezone.now, db_index=True)
     processing_time = models.FloatField(default=0.0)  # in seconds
+    
+    # History tracking
+    history = HistoricalRecords(
+        table_name='sb_sync_log_history',
+        verbose_name='Sync Log History',
+        related_name='sync_log_history'
+    )
     
     class Meta:
         db_table = 'sb_sync_log'
@@ -52,6 +61,13 @@ class SyncMetadata(models.Model):
     last_sync = models.DateTimeField(default=timezone.now, db_index=True)
     total_synced = models.BigIntegerField(default=0)
     
+    # History tracking
+    history = HistoricalRecords(
+        table_name='sb_sync_metadata_history',
+        verbose_name='Sync Metadata History',
+        related_name='sync_metadata_history'
+    )
+    
     class Meta:
         db_table = 'sb_sync_metadata'
         indexes = [
@@ -74,6 +90,13 @@ class PerformanceMetrics(models.Model):
     query_count = models.IntegerField()
     timestamp = models.DateTimeField(default=timezone.now, db_index=True)
     
+    # History tracking
+    history = HistoricalRecords(
+        table_name='sb_sync_performance_metrics_history',
+        verbose_name='Performance Metrics History',
+        related_name='performance_metrics_history'
+    )
+    
     class Meta:
         db_table = 'sb_sync_performance_metrics'
         indexes = [
@@ -93,6 +116,13 @@ class Organization(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    # History tracking
+    history = HistoricalRecords(
+        table_name='sb_sync_organization_history',
+        verbose_name='Organization History',
+        related_name='organization_history'
+    )
+    
     class Meta:
         db_table = 'sb_sync_organization'
         indexes = [
@@ -109,6 +139,13 @@ class UserOrganization(models.Model):
     group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True, help_text="Django auth group representing the user's role")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    # History tracking
+    history = HistoricalRecords(
+        table_name='sb_sync_user_organization_history',
+        verbose_name='User Organization History',
+        related_name='user_organization_history'
+    )
     
     class Meta:
         db_table = 'sb_sync_user_organization'
@@ -136,6 +173,13 @@ class ModelPermission(models.Model):
     filters = models.JSONField(blank=True, null=True)  # Custom filters for data access
     created_at = models.DateTimeField(auto_now_add=True)
     
+    # History tracking
+    history = HistoricalRecords(
+        table_name='sb_sync_model_permission_history',
+        verbose_name='Model Permission History',
+        related_name='model_permission_history'
+    )
+    
     class Meta:
         db_table = 'sb_sync_model_permission'
         unique_together = ['organization', 'group', 'model_name']
@@ -155,6 +199,13 @@ class UserSyncMetadata(models.Model):
     model_name = models.CharField(max_length=100, db_index=True)
     last_sync = models.DateTimeField(default=timezone.now, db_index=True)
     total_synced = models.BigIntegerField(default=0)
+    
+    # History tracking
+    history = HistoricalRecords(
+        table_name='sb_sync_user_sync_metadata_history',
+        verbose_name='User Sync Metadata History',
+        related_name='user_sync_metadata_history'
+    )
     
     class Meta:
         db_table = 'sb_sync_user_sync_metadata'
@@ -176,6 +227,13 @@ class DataFilter(models.Model):
     filter_condition = models.JSONField()  # e.g., {"field": "department", "operator": "exact", "value": "SALES"}
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    # History tracking
+    history = HistoricalRecords(
+        table_name='sb_sync_data_filter_history',
+        verbose_name='Data Filter History',
+        related_name='data_filter_history'
+    )
     
     class Meta:
         db_table = 'sb_sync_data_filter'

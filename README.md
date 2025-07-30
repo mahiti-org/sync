@@ -5,6 +5,8 @@ A robust Django package for data synchronization with PUSH/PULL APIs, featuring 
 ## 🚀 Features
 
 - **PUSH/PULL API Endpoints**: Bidirectional data synchronization
+- **🌐 Web-Based Configuration Interface**: Visual management of permissions and settings
+- **📋 Audit Trails**: Complete change history tracking with Django Simple History
 - **JWT Authentication**: Secure token-based authentication
 - **Multi-Tenant Support**: Organization-based data isolation
 - **Role-Based Access Control**: Granular permissions per user role
@@ -21,6 +23,7 @@ A robust Django package for data synchronization with PUSH/PULL APIs, featuring 
 - Django >= 3.2
 - Django REST Framework >= 3.14.0
 - PyJWT >= 2.6.0
+- Django Simple History >= 3.4.0 (for audit trails)
 - Celery (for background tasks)
 
 ## 🛠️ Installation
@@ -44,6 +47,24 @@ SB_SYNC_LOG_DIR = 'logs'  # Directory for sync logs
 3. Run migrations:
 ```bash
 python manage.py migrate
+```
+
+4. Access the web configuration interface:
+```bash
+# Navigate to: http://your-domain/api/sync/config/
+# Login with admin credentials (staff members only)
+```
+
+5. Setup audit trails (optional but recommended):
+```bash
+# Setup Django Simple History for audit trails
+python manage.py setup_audit_trails --action setup
+
+# Check audit trails status
+python manage.py setup_audit_trails --action check
+
+# Cleanup old audit trail records
+python manage.py setup_audit_trails --action cleanup
 ```
 
 ## 🔧 Configuration
@@ -113,6 +134,8 @@ python manage.py setup_organizations --action setup_example
 
 ### 5. Dynamic Permission Configuration
 
+#### Using Command Line
+
 ```bash
 # Discover all models in your project
 python manage.py dynamic_permissions --action discover
@@ -135,6 +158,18 @@ python manage.py dynamic_permissions --action validate --config-file permissions
 # Show available templates
 python manage.py dynamic_permissions --action template
 ```
+
+#### Using Web Interface (Recommended)
+
+For easier management, use the web-based configuration interface:
+
+1. **Access the permission matrix**: `http://your-domain/api/sync/config/permissions/`
+2. **Select your organization** from the dropdown
+3. **Use checkboxes** to grant/revoke permissions for each model and group
+4. **Changes are saved automatically** via AJAX
+5. **Use bulk operations** (Select All/Deselect All) for efficiency
+
+The web interface provides a visual matrix showing all models vs permissions, making it much easier to manage complex permission scenarios.
 
 ## 👥 User Groups and Permissions
 
@@ -165,6 +200,97 @@ The system comes with common groups that can be customized for any domain:
 | Sales | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
 | Support | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
 | Read Only | ✅ Pull | ✅ Pull | ✅ Pull | ✅ Pull | ❌ No |
+
+## 🌐 Web-Based Configuration Interface
+
+The SB Sync package includes a comprehensive web-based configuration interface that allows you to manage model permissions, monitor sync operations, and configure model discovery through an intuitive web interface.
+
+### 🚀 Interface Features
+
+- **📊 Dashboard**: Overview statistics and quick actions
+- **🔐 Permission Matrix**: Visual matrix interface for managing model permissions
+- **🔍 Model Discovery**: Configure which models are available for sync
+- **📋 Sync Logs**: View operation history and performance data
+- **📈 Performance Metrics**: Interactive charts and detailed metrics
+
+### 🛠️ Accessing the Interface
+
+1. **Navigate to the configuration dashboard**:
+   ```
+   http://your-domain/api/sync/config/
+   ```
+
+2. **Login with admin credentials** (staff members only)
+
+3. **Use the sidebar navigation** to access different sections
+
+### 🔐 Permission Matrix
+
+The permission matrix provides a visual interface for managing model permissions:
+
+- **Visual Matrix**: See all models vs permissions in a matrix format
+- **Checkbox Controls**: Grant or revoke permissions with simple checkboxes
+- **Organization Selection**: Switch between different organizations
+- **Real-time Updates**: Changes are saved immediately via AJAX
+- **Bulk Operations**: Select all/deselect all functionality
+
+**URL**: `/api/sync/config/permissions/`
+
+### 🔍 Model Discovery Configuration
+
+Configure which models are discovered and available for sync:
+
+- **Auto Discovery Settings**: Enable/disable automatic model discovery
+- **App Filtering**: Include specific apps or all apps
+- **Model Exclusion**: Exclude specific models from sync operations
+- **Live Preview**: See which models are discovered in real-time
+
+**URL**: `/api/sync/config/model-discovery/`
+
+### 📋 Sync Logs
+
+Monitor sync operations and performance:
+
+- **Operation History**: View all sync operations with timestamps
+- **Performance Data**: See processing times and record counts
+- **Export Functionality**: Download logs as CSV
+- **Auto-refresh**: Logs update automatically every 30 seconds
+
+**URL**: `/api/sync/config/logs/`
+
+### 📈 Performance Metrics
+
+Track system performance and optimization:
+
+- **Performance Charts**: Visual charts showing processing time trends
+- **Detailed Metrics**: View batch sizes, memory usage, and query counts
+- **Performance Analysis**: Automatic suggestions for optimization
+- **Export Data**: Download performance data as CSV
+
+**URL**: `/api/sync/config/metrics/`
+
+### 📋 Audit Trails
+
+Track all changes to sync system with comprehensive audit trails:
+
+- **Complete History**: Track all changes to sync models (create, update, delete)
+- **User Attribution**: See who made each change and when
+- **Field-Level Changes**: View exactly what fields were modified
+- **Filtering & Search**: Filter by model type, user, date range
+- **Export Capabilities**: Download audit trail data as CSV
+- **Real-time Updates**: Auto-refreshing audit trail display
+
+**URL**: `/api/sync/config/audit-trails/`
+
+### 🎨 Interface Features
+
+- **Modern Design**: Bootstrap 5 with gradient backgrounds and smooth animations
+- **Responsive Design**: Works on all devices (mobile, tablet, desktop)
+- **Real-time Updates**: AJAX-powered with immediate feedback
+- **Security**: Staff-only access with CSRF protection
+- **Performance**: Cached data and optimized queries
+
+For detailed documentation on the web interface, see [WEB_CONFIG_README.md](WEB_CONFIG_README.md).
 
 ## 📡 API Endpoints
 
@@ -692,6 +818,52 @@ python manage.py setup_organizations --action set_permissions --org-slug acme-co
 # Setup complete example system
 python manage.py setup_organizations --action setup_example
 ```
+
+### Audit Trails Management
+
+```bash
+# Setup audit trails for all sync models
+python manage.py setup_audit_trails --action setup
+
+# Check audit trails status
+python manage.py setup_audit_trails --action check
+
+# Cleanup old audit trail records
+python manage.py setup_audit_trails --action cleanup
+
+# Setup audit trails for specific model
+python manage.py setup_audit_trails --action setup --model sb_sync.Organization
+
+# Check specific model audit trails
+python manage.py setup_audit_trails --action check --model sb_sync.ModelPermission
+```
+
+### Web-Based Configuration Interface
+
+For easier management, use the web interface instead of command-line tools:
+
+```bash
+# Access the web interface
+http://your-domain/api/sync/config/
+```
+
+**Available Web Interfaces:**
+
+- **Dashboard**: `/api/sync/config/` - Overview and quick actions
+- **Permission Matrix**: `/api/sync/config/permissions/` - Visual permission management
+- **Model Discovery**: `/api/sync/config/model-discovery/` - Configure model discovery
+- **Sync Logs**: `/api/sync/config/logs/` - View operation history
+- **Performance Metrics**: `/api/sync/config/metrics/` - Monitor performance
+- **Audit Trails**: `/api/sync/config/audit-trails/` - Track all changes
+
+**Benefits of Web Interface:**
+- ✅ **Visual Management**: Checkbox-based permissions instead of JSON files
+- ✅ **Real-time Updates**: Changes saved immediately via AJAX
+- ✅ **Bulk Operations**: Select all/deselect all functionality
+- ✅ **Live Monitoring**: Auto-refreshing logs and metrics
+- ✅ **Export Capabilities**: Download data as CSV
+- ✅ **No Configuration Files**: Everything managed through web interface
+- ✅ **Audit Trails**: Complete change history tracking
 
 ### Dynamic Permission Configuration
 

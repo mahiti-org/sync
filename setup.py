@@ -13,7 +13,7 @@ def read_requirements(filename):
 
 setup(
     name='sb-sync',
-    version='1.4.0',
+    version='1.5.0',
     description='Django package for data synchronization with PUSH/PULL APIs',
     long_description=read_readme(),
     long_description_content_type='text/markdown',
@@ -62,6 +62,7 @@ setup(
         'django-silk>=5.0.0',
         'django-prometheus>=2.3.0',
         'prometheus-client>=0.16.0',
+        'django-simple-history>=3.4.0',
         'psutil>=5.9.0',
         'requests>=2.28.0',
         'urllib3>=1.26.0',

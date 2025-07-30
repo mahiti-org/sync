@@ -1,0 +1,364 @@
+{% extends 'sb_sync/base.html' %}
+
+{% block title %}Audit Trails - SB Sync Configuration{% endblock %}
+{% block page_title %}Audit Trails{% endblock %}
+
+{% block page_actions %}
+<div class="btn-group" role="group">
+    <button type="button" class="btn btn-outline-primary" id="refreshAuditBtn">
+        <i class="fas fa-sync-alt me-1"></i>Refresh
+    </button>
+    <button type="button" class="btn btn-outline-secondary" id="exportAuditBtn">
+        <i class="fas fa-download me-1"></i>Export
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Filter Form -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-filter me-2"></i>
+                    Filter Audit Trail
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="model_type" class="form-label">Model Type</label>
+                        <select class="form-select" id="model_type" name="model_type">
+                            <option value="">All Models</option>
+                            {% for value, label in model_choices %}
+                                <option value="{{ value }}" {% if value == model_type %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="user" class="form-label">User</label>
+                        <input type="text" class="form-control" id="user" name="user" value="{{ user_filter }}" placeholder="Filter by username">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date_from" class="form-label">From Date</label>
+                        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date_to" class="form-label">To Date</label>
+                        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filter
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ total_records }}</div>
+                <div class="stats-label">History Records</div>
+                <i class="fas fa-history fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ model_choices|length }}</div>
+                <div class="stats-label">Tracked Models</div>
+                <i class="fas fa-database fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">
+                    {% for record in history_records %}
+                        {% if record.history_type == '+' %}
+                            {{ forloop.counter }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="stats-label">Created Records</div>
+                <i class="fas fa-plus-circle fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">
+                    {% for record in history_records %}
+                        {% if record.history_type == '~' %}
+                            {{ forloop.counter }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="stats-label">Modified Records</div>
+                <i class="fas fa-edit fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Audit Trail Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Audit Trail History
+                </h5>
+                <small class="text-muted">Showing the last 100 history records</small>
+            </div>
+            <div class="card-body">
+                {% if history_records %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="auditTable">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Model</th>
+                                    <th>Action</th>
+                                    <th>Record ID</th>
+                                    <th>Changes</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in history_records %}
+                                <tr>
+                                    <td>
+                                        <small>{{ record.history_date|date:"M d, Y H:i:s" }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-user text-primary me-2"></i>
+                                            <span>{{ record.history_user.username|default:"System" }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ record.history_type_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if record.history_type == '+' %}
+                                            <span class="badge bg-success">Created</span>
+                                        {% elif record.history_type == '~' %}
+                                            <span class="badge bg-warning">Modified</span>
+                                        {% elif record.history_type == '-' %}
+                                            <span class="badge bg-danger">Deleted</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <code>{{ record.history_id }}</code>
+                                    </td>
+                                    <td>
+                                        {% if record.history_type == '~' and record.prev_record %}
+                                            <button class="btn btn-sm btn-outline-info" 
+                                                    onclick="showChanges('{{ record.history_id }}')"
+                                                    title="View Changes">
+                                                <i class="fas fa-eye"></i> Changes
+                                            </button>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                onclick="showRecordDetails('{{ record.history_id }}', '{{ record.history_type_display }}')"
+                                                title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-history fa-3x mb-3"></i>
+                        <p>No audit trail records found</p>
+                        <small>History records will appear here when changes are made</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Record Details Modal -->
+<div class="modal fade" id="recordDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Record Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="recordDetailsContent">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Changes Modal -->
+<div class="modal fade" id="changesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Field Changes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="changesContent">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Refresh audit trail
+    $('#refreshAuditBtn').click(function() {
+        location.reload();
+    });
+    
+    // Export audit trail
+    $('#exportAuditBtn').click(function() {
+        let csv = 'Timestamp,User,Model,Action,Record ID\n';
+        $('#auditTable tbody tr').each(function() {
+            const cells = $(this).find('td');
+            const row = [
+                cells.eq(0).text().trim(),
+                cells.eq(1).text().trim(),
+                cells.eq(2).text().trim(),
+                cells.eq(3).text().trim(),
+                cells.eq(4).text().trim()
+            ];
+            csv += row.join(',') + '\n';
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'audit_trail.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+    });
+    
+    // Auto-refresh every 60 seconds
+    setInterval(function() {
+        if (document.visibilityState === 'visible') {
+            $('#refreshAuditBtn').click();
+        }
+    }, 60000);
+});
+
+function showRecordDetails(recordId, modelType) {
+    $('#recordDetailsContent').html(`
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+            <p>Loading record details...</p>
+        </div>
+    `);
+    $('#recordDetailsModal').modal('show');
+    
+    // Simulate loading record details
+    setTimeout(function() {
+        $('#recordDetailsContent').html(`
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Record Information</h6>
+                    <table class="table table-sm">
+                        <tr><td>Record ID:</td><td>${recordId}</td></tr>
+                        <tr><td>Model Type:</td><td>${modelType}</td></tr>
+                        <tr><td>History Type:</td><td>Modified</td></tr>
+                        <tr><td>Timestamp:</td><td>${new Date().toLocaleString()}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Current Values</h6>
+                    <table class="table table-sm">
+                        <tr><td>Field 1:</td><td>Value 1</td></tr>
+                        <tr><td>Field 2:</td><td>Value 2</td></tr>
+                        <tr><td>Field 3:</td><td>Value 3</td></tr>
+                    </table>
+                </div>
+            </div>
+        `);
+    }, 1000);
+}
+
+function showChanges(recordId) {
+    $('#changesContent').html(`
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+            <p>Loading changes...</p>
+        </div>
+    `);
+    $('#changesModal').modal('show');
+    
+    // Simulate loading changes
+    setTimeout(function() {
+        $('#changesContent').html(`
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Old Value</th>
+                            <th>New Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Name</strong></td>
+                            <td class="text-danger">Old Name</td>
+                            <td class="text-success">New Name</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Status</strong></td>
+                            <td class="text-danger">Inactive</td>
+                            <td class="text-success">Active</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Description</strong></td>
+                            <td class="text-danger">Old description</td>
+                            <td class="text-success">Updated description</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        `);
+    }, 1000);
+}
+</script>
+{% endblock %} 

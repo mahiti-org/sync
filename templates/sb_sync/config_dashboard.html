@@ -1,0 +1,235 @@
+{% extends 'sb_sync/base.html' %}
+
+{% block title %}Dashboard - SB Sync Configuration{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ total_models }}</div>
+                <div class="stats-label">Models Available</div>
+                <i class="fas fa-database fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ total_organizations }}</div>
+                <div class="stats-label">Organizations</div>
+                <i class="fas fa-building fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ total_groups }}</div>
+                <div class="stats-label">User Groups</div>
+                <i class="fas fa-users fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <div class="stats-number">{{ total_models|add:total_organizations|add:total_groups }}</div>
+                <div class="stats-label">Total Configurations</div>
+                <i class="fas fa-cogs fa-2x mt-2 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Quick Actions -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <a href="{% url 'sb_sync:permission_matrix' %}" class="btn btn-primary w-100">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            Manage Permissions
+                        </a>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <a href="{% url 'sb_sync:model_discovery_config' %}" class="btn btn-info w-100">
+                            <i class="fas fa-search me-2"></i>
+                            Model Discovery
+                        </a>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <a href="{% url 'sb_sync:sync_logs' %}" class="btn btn-warning w-100">
+                            <i class="fas fa-list-alt me-2"></i>
+                            View Logs
+                        </a>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <a href="{% url 'sb_sync:performance_metrics' %}" class="btn btn-success w-100">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Performance
+                        </a>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <a href="{% url 'sb_sync:audit_trails' %}" class="btn btn-dark w-100">
+                            <i class="fas fa-history me-2"></i>
+                            Audit Trails
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Recent Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-sync-alt text-primary me-2"></i>
+                            <strong>Sync System</strong>
+                            <br>
+                            <small class="text-muted">Configuration panel ready</small>
+                        </div>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-shield-alt text-info me-2"></i>
+                            <strong>Permissions</strong>
+                            <br>
+                            <small class="text-muted">{{ total_groups }} groups configured</small>
+                        </div>
+                        <span class="badge bg-info">{{ total_groups }}</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas fa-database text-warning me-2"></i>
+                            <strong>Models</strong>
+                            <br>
+                            <small class="text-muted">{{ total_models }} models discovered</small>
+                        </div>
+                        <span class="badge bg-warning">{{ total_models }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Organizations Overview -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-building me-2"></i>
+                    Organizations
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if organizations %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Slug</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for org in organizations %}
+                                <tr>
+                                    <td>{{ org.name }}</td>
+                                    <td><code>{{ org.slug }}</code></td>
+                                    <td>
+                                        {% if org.is_active %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-building fa-3x mb-3"></i>
+                        <p>No organizations configured</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Models Overview -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-database me-2"></i>
+                    Available Models
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if models %}
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>App</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for model in models|slice:":10" %}
+                                <tr>
+                                    <td><code>{{ model }}</code></td>
+                                    <td><span class="badge bg-light text-dark">{{ model.split.0 }}</span></td>
+                                </tr>
+                                {% endfor %}
+                                {% if models|length > 10 %}
+                                <tr>
+                                    <td colspan="2" class="text-center text-muted">
+                                        <small>... and {{ models|length|add:"-10" }} more models</small>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-database fa-3x mb-3"></i>
+                        <p>No models discovered</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

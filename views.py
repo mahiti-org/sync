@@ -5,16 +5,22 @@ from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 from django.core.cache import cache
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .authentication import JWTAuthentication
 from .serializers import PushDataSerializer, PullRequestSerializer
-from .models import SyncLog, SyncMetadata, Organization, UserOrganization, UserSyncMetadata
+from .models import SyncLog, SyncMetadata, Organization, UserOrganization, UserSyncMetadata, ModelPermission, Group
 from .permissions import MultiTenantPermission, SyncPermission, MultiTenantMixin
-from .utils import DataProcessor
-from .config import get_config, get_default_models, is_model_enabled
+from .utils import DataProcessor, ModelIntrospector
+from .config import get_config, get_default_models, is_model_enabled, get_all_models
 from .optimizations import (
     QueryOptimizer, BulkOperations, MemoryOptimizer, 
     CacheOptimizer, PerformanceMonitor, AsyncProcessor
@@ -483,3 +489,343 @@ class PerformanceView(APIView):
                 suggestions.append("Low cache hit rate. Consider adjusting cache settings.")
         
         return suggestions
+
+
+# Web-based Configuration Views
+
+@staff_member_required
+def config_dashboard(request):
+    """Main configuration dashboard"""
+    organizations = Organization.objects.filter(is_active=True)
+    groups = Group.objects.all()
+    models = get_all_models()
+    
+    context = {
+        'organizations': organizations,
+        'groups': groups,
+        'models': models,
+        'total_models': len(models),
+        'total_organizations': organizations.count(),
+        'total_groups': groups.count(),
+    }
+    
+    return render(request, 'sb_sync/config_dashboard.html', context)
+
+
+@staff_member_required
+def permission_matrix(request, organization_id=None):
+    """Permission matrix view for managing model permissions"""
+    if organization_id:
+        organization = Organization.objects.get(id=organization_id)
+    else:
+        # Get first organization or redirect to dashboard
+        organization = Organization.objects.filter(is_active=True).first()
+        if not organization:
+            return redirect('sb_sync:config_dashboard')
+    
+    groups = Group.objects.all()
+    models = get_all_models()
+    
+    # Get existing permissions for this organization
+    existing_permissions = {}
+    permissions = ModelPermission.objects.filter(organization=organization)
+    for perm in permissions:
+        key = f"{perm.group.id}_{perm.model_name}"
+        existing_permissions[key] = {
+            'can_push': perm.can_push,
+            'can_pull': perm.can_pull,
+            'can_create': perm.can_create,
+            'can_update': perm.can_update,
+            'can_delete': perm.can_delete,
+            'can_read': perm.can_read,
+        }
+    
+    context = {
+        'organization': organization,
+        'organizations': Organization.objects.filter(is_active=True),
+        'groups': groups,
+        'models': models,
+        'existing_permissions': existing_permissions,
+        'permission_types': [
+            ('can_push', 'Push'),
+            ('can_pull', 'Pull'),
+            ('can_create', 'Create'),
+            ('can_update', 'Update'),
+            ('can_delete', 'Delete'),
+            ('can_read', 'Read'),
+        ]
+    }
+    
+    return render(request, 'sb_sync/permission_matrix.html', context)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@staff_member_required
+def update_permission(request):
+    """Update a single permission via AJAX"""
+    try:
+        data = json.loads(request.body)
+        organization_id = data.get('organization_id')
+        group_id = data.get('group_id')
+        model_name = data.get('model_name')
+        permission_type = data.get('permission_type')
+        value = data.get('value')
+        
+        if not all([organization_id, group_id, model_name, permission_type]):
+            return JsonResponse({'success': False, 'error': 'Missing required parameters'})
+        
+        organization = Organization.objects.get(id=organization_id)
+        group = Group.objects.get(id=group_id)
+        
+        # Get or create permission
+        permission, created = ModelPermission.objects.get_or_create(
+            organization=organization,
+            group=group,
+            model_name=model_name,
+            defaults={
+                'can_push': False,
+                'can_pull': False,
+                'can_create': False,
+                'can_update': False,
+                'can_delete': False,
+                'can_read': True,  # Default to read access
+            }
+        )
+        
+        # Update the specific permission
+        setattr(permission, permission_type, value)
+        permission.save()
+        
+        # Invalidate cache
+        cache_key = f"model_permission_{organization_id}_{group_id}_{model_name}"
+        cache.delete(cache_key)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Permission {permission_type} updated to {value}',
+            'permission': {
+                'organization_id': organization_id,
+                'group_id': group_id,
+                'model_name': model_name,
+                permission_type: value
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating permission: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@staff_member_required
+def bulk_update_permissions(request):
+    """Bulk update permissions"""
+    try:
+        data = json.loads(request.body)
+        organization_id = data.get('organization_id')
+        group_id = data.get('group_id')
+        permissions = data.get('permissions', [])
+        
+        if not organization_id or not group_id:
+            return JsonResponse({'success': False, 'error': 'Missing organization or group'})
+        
+        organization = Organization.objects.get(id=organization_id)
+        group = Group.objects.get(id=group_id)
+        
+        updated_count = 0
+        for perm_data in permissions:
+            model_name = perm_data.get('model_name')
+            permission_type = perm_data.get('permission_type')
+            value = perm_data.get('value')
+            
+            if not all([model_name, permission_type]):
+                continue
+            
+            permission, created = ModelPermission.objects.get_or_create(
+                organization=organization,
+                group=group,
+                model_name=model_name,
+                defaults={
+                    'can_push': False,
+                    'can_pull': False,
+                    'can_create': False,
+                    'can_update': False,
+                    'can_delete': False,
+                    'can_read': True,
+                }
+            )
+            
+            setattr(permission, permission_type, value)
+            permission.save()
+            updated_count += 1
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Updated {updated_count} permissions',
+            'updated_count': updated_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error bulk updating permissions: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@staff_member_required
+def model_discovery_config(request):
+    """Model discovery configuration page"""
+    from .config import SyncConfig
+    
+    if request.method == 'POST':
+        # Handle form submission
+        include_apps = request.POST.getlist('include_apps')
+        exclude_models = request.POST.getlist('exclude_models')
+        auto_discover = request.POST.get('auto_discover') == 'on'
+        include_custom = request.POST.get('include_custom') == 'on'
+        
+        # Update configuration
+        SyncConfig.set_config('MODEL_DISCOVERY', 'AUTO_DISCOVER_MODELS', auto_discover)
+        SyncConfig.set_config('MODEL_DISCOVERY', 'INCLUDE_APPS', include_apps)
+        SyncConfig.set_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS', exclude_models)
+        SyncConfig.set_config('MODEL_DISCOVERY', 'INCLUDE_CUSTOM_MODELS', include_custom)
+        
+        return redirect('sb_sync:model_discovery_config')
+    
+    # Get current configuration
+    config = SyncConfig.get_config('MODEL_DISCOVERY')
+    all_apps = [app.label for app in apps.get_app_configs()]
+    all_models = get_all_models()
+    
+    context = {
+        'config': config,
+        'all_apps': all_apps,
+        'all_models': all_models,
+        'discovered_models': get_all_models(),
+    }
+    
+    return render(request, 'sb_sync/model_discovery_config.html', context)
+
+
+@staff_member_required
+def sync_logs(request):
+    """View sync logs"""
+    logs = SyncLog.objects.all().order_by('-timestamp')[:100]
+    
+    context = {
+        'logs': logs,
+        'total_logs': SyncLog.objects.count(),
+    }
+    
+    return render(request, 'sb_sync/sync_logs.html', context)
+
+
+@staff_member_required
+def performance_metrics(request):
+    """View performance metrics"""
+    from .models import PerformanceMetrics
+    
+    metrics = PerformanceMetrics.objects.all().order_by('-timestamp')[:50]
+    
+    context = {
+        'metrics': metrics,
+        'total_metrics': PerformanceMetrics.objects.count(),
+    }
+    
+    return render(request, 'sb_sync/performance_metrics.html', context)
+
+
+@staff_member_required
+def audit_trails(request):
+    """View audit trails for all sync models"""
+    from .models import (
+        SyncLog, SyncMetadata, PerformanceMetrics, Organization, 
+        UserOrganization, ModelPermission, UserSyncMetadata, DataFilter
+    )
+    
+    # Get model choices for filtering
+    model_choices = [
+        ('SyncLog', 'Sync Logs'),
+        ('SyncMetadata', 'Sync Metadata'),
+        ('PerformanceMetrics', 'Performance Metrics'),
+        ('Organization', 'Organizations'),
+        ('UserOrganization', 'User Organizations'),
+        ('ModelPermission', 'Model Permissions'),
+        ('UserSyncMetadata', 'User Sync Metadata'),
+        ('DataFilter', 'Data Filters'),
+    ]
+    
+    # Get filter parameters
+    model_type = request.GET.get('model_type', '')
+    user_filter = request.GET.get('user', '')
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    
+    # Get history records based on filters
+    history_records = []
+    
+    if model_type:
+        # Get history for specific model type
+        if model_type == 'SyncLog':
+            history_records = SyncLog.history.all()
+        elif model_type == 'SyncMetadata':
+            history_records = SyncMetadata.history.all()
+        elif model_type == 'PerformanceMetrics':
+            history_records = PerformanceMetrics.history.all()
+        elif model_type == 'Organization':
+            history_records = Organization.history.all()
+        elif model_type == 'UserOrganization':
+            history_records = UserOrganization.history.all()
+        elif model_type == 'ModelPermission':
+            history_records = ModelPermission.history.all()
+        elif model_type == 'UserSyncMetadata':
+            history_records = UserSyncMetadata.history.all()
+        elif model_type == 'DataFilter':
+            history_records = DataFilter.history.all()
+    else:
+        # Get all history records
+        all_histories = []
+        all_histories.extend(SyncLog.history.all())
+        all_histories.extend(SyncMetadata.history.all())
+        all_histories.extend(PerformanceMetrics.history.all())
+        all_histories.extend(Organization.history.all())
+        all_histories.extend(UserOrganization.history.all())
+        all_histories.extend(ModelPermission.history.all())
+        all_histories.extend(UserSyncMetadata.history.all())
+        all_histories.extend(DataFilter.history.all())
+        history_records = sorted(all_histories, key=lambda x: x.history_date, reverse=True)
+    
+    # Apply additional filters
+    if user_filter:
+        history_records = [r for r in history_records if hasattr(r, 'history_user') and r.history_user and user_filter.lower() in r.history_user.username.lower()]
+    
+    if date_from:
+        from datetime import datetime
+        try:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
+            history_records = [r for r in history_records if r.history_date >= date_from_obj]
+        except ValueError:
+            pass
+    
+    if date_to:
+        from datetime import datetime
+        try:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
+            history_records = [r for r in history_records if r.history_date <= date_to_obj]
+        except ValueError:
+            pass
+    
+    # Limit to last 100 records
+    history_records = history_records[:100]
+    
+    context = {
+        'history_records': history_records,
+        'model_choices': model_choices,
+        'model_type': model_type,
+        'user_filter': user_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+        'total_records': len(history_records),
+    }
+    
+    return render(request, 'sb_sync/audit_trails.html', context)

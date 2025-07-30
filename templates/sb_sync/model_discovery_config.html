@@ -1,0 +1,261 @@
+{% extends 'sb_sync/base.html' %}
+
+{% block title %}Model Discovery Configuration - SB Sync Configuration{% endblock %}
+{% block page_title %}Model Discovery Configuration{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Configuration Form -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-cogs me-2"></i>
+                    Discovery Settings
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Auto Discovery -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="auto_discover" name="auto_discover" 
+                                   {% if config.AUTO_DISCOVER_MODELS %}checked{% endif %}>
+                            <label class="form-check-label" for="auto_discover">
+                                <strong>Auto Discover Models</strong>
+                            </label>
+                        </div>
+                        <small class="text-muted">Automatically discover models from Django apps</small>
+                    </div>
+                    
+                    <!-- Include Custom Models -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="include_custom" name="include_custom" 
+                                   {% if config.INCLUDE_CUSTOM_MODELS %}checked{% endif %}>
+                            <label class="form-check-label" for="include_custom">
+                                <strong>Include Custom Models</strong>
+                            </label>
+                        </div>
+                        <small class="text-muted">Include custom models from your applications</small>
+                    </div>
+                    
+                    <!-- Include Apps -->
+                    <div class="mb-4">
+                        <label for="include_apps" class="form-label">
+                            <strong>Include Apps</strong>
+                        </label>
+                        <select class="form-select" id="include_apps" name="include_apps" multiple size="8">
+                            {% for app in all_apps %}
+                                <option value="{{ app }}" 
+                                        {% if app in config.INCLUDE_APPS %}selected{% endif %}>
+                                    {{ app }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Leave empty to include all apps. Select specific apps to limit discovery.</small>
+                    </div>
+                    
+                    <!-- Exclude Models -->
+                    <div class="mb-4">
+                        <label for="exclude_models" class="form-label">
+                            <strong>Exclude Models</strong>
+                        </label>
+                        <select class="form-select" id="exclude_models" name="exclude_models" multiple size="8">
+                            {% for model in all_models %}
+                                <option value="{{ model }}" 
+                                        {% if model in config.EXCLUDE_MODELS %}selected{% endif %}>
+                                    {{ model }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Select models to exclude from sync operations</small>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Save Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Discovery Summary -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Discovery Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="stats-number text-primary">{{ all_models|length }}</div>
+                        <div class="stats-label">Total Models</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stats-number text-success">{{ discovered_models|length }}</div>
+                        <div class="stats-label">Discovered Models</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stats-number text-warning">{{ config.INCLUDE_APPS|length }}</div>
+                        <div class="stats-label">Included Apps</div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stats-number text-danger">{{ config.EXCLUDE_MODELS|length }}</div>
+                        <div class="stats-label">Excluded Models</div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <h6>Configuration Status</h6>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-{% if config.AUTO_DISCOVER_MODELS %}check text-success{% else %}times text-danger{% endif %} me-2"></i>
+                        Auto Discovery
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-{% if config.INCLUDE_CUSTOM_MODELS %}check text-success{% else %}times text-danger{% endif %} me-2"></i>
+                        Custom Models
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-{% if config.INCLUDE_APPS %}check text-success{% else %}times text-danger{% endif %} me-2"></i>
+                        App Filtering
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-{% if config.EXCLUDE_MODELS %}check text-success{% else %}times text-danger{% endif %} me-2"></i>
+                        Model Exclusion
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Discovered Models -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-database me-2"></i>
+                    Discovered Models
+                </h5>
+                <small class="text-muted">Models available for sync operations</small>
+            </div>
+            <div class="card-body">
+                {% if discovered_models %}
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Model</th>
+                                    <th>App</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for model in discovered_models %}
+                                <tr>
+                                    <td><code>{{ model }}</code></td>
+                                    <td><span class="badge bg-light text-dark">{{ model.split.0 }}</span></td>
+                                    <td>
+                                        {% if model in config.EXCLUDE_MODELS %}
+                                            <span class="badge bg-danger">Excluded</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Available</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-database fa-3x mb-3"></i>
+                        <p>No models discovered</p>
+                        <small>Check your configuration settings</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Excluded Models -->
+{% if config.EXCLUDE_MODELS %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-ban me-2"></i>
+                    Excluded Models
+                </h5>
+                <small class="text-muted">Models excluded from sync operations</small>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Model</th>
+                                <th>App</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for model in config.EXCLUDE_MODELS %}
+                            <tr>
+                                <td><code>{{ model }}</code></td>
+                                <td><span class="badge bg-light text-dark">{{ model.split.0 }}</span></td>
+                                <td>
+                                    <span class="badge bg-warning">Manually Excluded</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Auto-save configuration changes
+    $('input[type="checkbox"], select').change(function() {
+        // Show a subtle indicator that changes are pending
+        $('button[type="submit"]').addClass('btn-warning').removeClass('btn-primary')
+            .html('<i class="fas fa-save me-2"></i>Save Changes');
+    });
+    
+    // Reset button state after form submission
+    $('form').submit(function() {
+        $('button[type="submit"]').removeClass('btn-warning').addClass('btn-primary')
+            .html('<i class="fas fa-save me-2"></i>Save Configuration');
+    });
+    
+    // Search functionality for select boxes
+    $('#include_apps, #exclude_models').on('keyup', function() {
+        const searchTerm = $(this).val().toLowerCase();
+        $(this).find('option').each(function() {
+            const text = $(this).text().toLowerCase();
+            $(this).toggle(text.indexOf(searchTerm) > -1);
+        });
+    });
+});
+</script>
+{% endblock %} 

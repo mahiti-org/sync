@@ -1,0 +1,360 @@
+{% extends 'sb_sync/base.html' %}
+{% load sb_sync_extras %}
+
+{% block title %}Permission Matrix - SB Sync Configuration{% endblock %}
+{% block page_title %}Permission Matrix{% endblock %}
+
+{% block page_actions %}
+<div class="btn-group" role="group">
+    <button type="button" class="btn btn-outline-primary" id="selectAllBtn">
+        <i class="fas fa-check-square me-1"></i>Select All
+    </button>
+    <button type="button" class="btn btn-outline-secondary" id="deselectAllBtn">
+        <i class="fas fa-square me-1"></i>Deselect All
+    </button>
+    <button type="button" class="btn btn-success" id="saveChangesBtn">
+        <i class="fas fa-save me-1"></i>Save Changes
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Organization Selector -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-building me-2"></i>
+                    Organization
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="organizationSelect" class="form-label">Select Organization:</label>
+                        <select class="form-select" id="organizationSelect">
+                            {% for org in organizations %}
+                                <option value="{{ org.id }}" {% if org.id == organization.id %}selected{% endif %}>
+                                    {{ org.name }} ({{ org.slug }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Current Organization:</label>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-primary fs-6">{{ organization.name }}</span>
+                            <span class="badge bg-light text-dark ms-2">{{ organization.slug }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Permission Matrix -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Model Permissions Matrix
+                </h5>
+                <small class="text-muted">Click checkboxes to grant or revoke permissions for each group</small>
+            </div>
+            <div class="card-body">
+                <div class="permission-matrix">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="permissionTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="min-width: 200px;">Model / Group</th>
+                                    {% for group in groups %}
+                                        <th class="text-center" style="min-width: 120px;">
+                                            <div class="d-flex flex-column align-items-center">
+                                                <small class="fw-bold">{{ group.name }}</small>
+                                                <small class="text-muted">{{ group.user_set.count }} users</small>
+                                            </div>
+                                        </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for model in models %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-database text-primary me-2"></i>
+                                            <div>
+                                                <strong>{{ model }}</strong>
+                                                <br>
+                                                <small class="text-muted">{{ model.split.0 }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    {% for group in groups %}
+                                        <td class="text-center">
+                                            <div class="permission-group" data-model="{{ model }}" data-group="{{ group.id }}">
+                                                {% for perm_type, perm_label in permission_types %}
+                                                    <div class="form-check form-check-inline d-block mb-1">
+                                                        <input class="form-check-input permission-checkbox" 
+                                                               type="checkbox" 
+                                                               id="perm_{{ model|slugify }}_{{ group.id }}_{{ perm_type }}"
+                                                               data-model="{{ model }}"
+                                                               data-group="{{ group.id }}"
+                                                               data-permission="{{ perm_type }}"
+                                                                                                                        {% with key=group.id|add:"_"|add:model %}
+                                                             {% if existing_permissions|lookup:key|lookup:perm_type %}checked{% endif %}
+                                                         {% endwith %}>
+                                                         <label class="form-check-label small" 
+                                                                for="perm_{{ model|slugify }}_{{ group.id }}_{{ perm_type }}">
+                                                             {{ perm_label }}
+                                                         </label>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Legend -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Permission Types
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for perm_type, perm_label in permission_types %}
+                    <div class="col-md-2 mb-2">
+                        <div class="d-flex align-items-center">
+                            <input type="checkbox" class="form-check-input me-2" disabled>
+                            <small class="fw-bold">{{ perm_label }}</small>
+                        </div>
+                        <small class="text-muted">
+                            {% if perm_type == 'can_push' %}
+                                Allow pushing data to this model
+                            {% elif perm_type == 'can_pull' %}
+                                Allow pulling data from this model
+                            {% elif perm_type == 'can_create' %}
+                                Allow creating new records
+                            {% elif perm_type == 'can_update' %}
+                                Allow updating existing records
+                            {% elif perm_type == 'can_delete' %}
+                                Allow deleting records
+                            {% elif perm_type == 'can_read' %}
+                                Allow reading/viewing records
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Messages -->
+<div id="statusMessages"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    let pendingChanges = [];
+    let isSaving = false;
+    
+    // Organization selector
+    $('#organizationSelect').change(function() {
+        const orgId = $(this).val();
+        window.location.href = `/api/sync/config/permissions/${orgId}/`;
+    });
+    
+    // Permission checkbox change handler
+    $('.permission-checkbox').change(function() {
+        const model = $(this).data('model');
+        const group = $(this).data('group');
+        const permission = $(this).data('permission');
+        const value = $(this).is(':checked');
+        
+        // Add to pending changes
+        const changeKey = `${model}_${group}_${permission}`;
+        const existingIndex = pendingChanges.findIndex(c => c.key === changeKey);
+        
+        if (existingIndex >= 0) {
+            pendingChanges[existingIndex].value = value;
+        } else {
+            pendingChanges.push({
+                key: changeKey,
+                model: model,
+                group: group,
+                permission: permission,
+                value: value
+            });
+        }
+        
+        updateSaveButton();
+        showStatusMessage('info', `Permission ${permission} for ${model} updated to ${value}`);
+    });
+    
+    // Select all permissions for a group
+    $('th').click(function() {
+        if ($(this).find('.permission-checkbox').length > 0) {
+            const isChecked = $(this).find('.permission-checkbox:checked').length === $(this).find('.permission-checkbox').length;
+            $(this).find('.permission-checkbox').prop('checked', !isChecked).trigger('change');
+        }
+    });
+    
+    // Select all buttons
+    $('#selectAllBtn').click(function() {
+        $('.permission-checkbox').prop('checked', true).trigger('change');
+    });
+    
+    $('#deselectAllBtn').click(function() {
+        $('.permission-checkbox').prop('checked', false).trigger('change');
+    });
+    
+    // Save changes
+    $('#saveChangesBtn').click(function() {
+        if (isSaving || pendingChanges.length === 0) return;
+        
+        isSaving = true;
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Saving...');
+        
+        const organizationId = $('#organizationSelect').val();
+        const permissions = pendingChanges.map(change => ({
+            model_name: change.model,
+            permission_type: change.permission,
+            value: change.value
+        }));
+        
+        $.ajax({
+            url: '{% url "sb_sync:bulk_update_permissions" %}',
+            method: 'POST',
+            data: JSON.stringify({
+                organization_id: organizationId,
+                group_id: null, // Will be set per permission
+                permissions: permissions
+            }),
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            success: function(response) {
+                if (response.success) {
+                    showStatusMessage('success', `Successfully updated ${response.updated_count} permissions`);
+                    pendingChanges = [];
+                    updateSaveButton();
+                } else {
+                    showStatusMessage('danger', `Error: ${response.error}`);
+                }
+            },
+            error: function(xhr, status, error) {
+                showStatusMessage('danger', `Error saving changes: ${error}`);
+            },
+            complete: function() {
+                isSaving = false;
+                $('#saveChangesBtn').prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Changes');
+            }
+        });
+    });
+    
+    // Individual permission updates
+    $('.permission-checkbox').on('change', function() {
+        const model = $(this).data('model');
+        const group = $(this).data('group');
+        const permission = $(this).data('permission');
+        const value = $(this).is(':checked');
+        
+        // Update individual permission via AJAX
+        $.ajax({
+            url: '{% url "sb_sync:update_permission" %}',
+            method: 'POST',
+            data: JSON.stringify({
+                organization_id: $('#organizationSelect').val(),
+                group_id: group,
+                model_name: model,
+                permission_type: permission,
+                value: value
+            }),
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            success: function(response) {
+                if (response.success) {
+                    showStatusMessage('success', response.message);
+                } else {
+                    showStatusMessage('danger', `Error: ${response.error}`);
+                }
+            },
+            error: function(xhr, status, error) {
+                showStatusMessage('danger', `Error updating permission: ${error}`);
+            }
+        });
+    });
+    
+    function updateSaveButton() {
+        const btn = $('#saveChangesBtn');
+        if (pendingChanges.length > 0) {
+            btn.removeClass('btn-success').addClass('btn-warning')
+                .html(`<i class="fas fa-save me-1"></i>Save Changes (${pendingChanges.length})`);
+        } else {
+            btn.removeClass('btn-warning').addClass('btn-success')
+                .html('<i class="fas fa-save me-1"></i>Save Changes');
+        }
+    }
+    
+    function showStatusMessage(type, message) {
+        const alertId = 'alert-' + Date.now();
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show" id="${alertId}" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        $('#statusMessages').append(alertHtml);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            $(`#${alertId}`).fadeOut();
+        }, 5000);
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Initialize
+    updateSaveButton();
+});
+</script>
+{% endblock %} 
