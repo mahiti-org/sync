@@ -61,7 +61,7 @@ MODEL_DISCOVERY = {
 
 **Result:** All models from `myapp`, `healthcare`, and `ecommerce` are discovered and available for sync, except the excluded ones.
 
-### 3. Healthcare Application
+### 3. E-commerce Application
 
 ```python
 MODEL_DISCOVERY = {

@@ -1,6 +1,6 @@
 # SB Sync - Django Data Synchronization Package
 
-A robust Django package for data synchronization with PUSH/PULL APIs, featuring JWT authentication, comprehensive logging, performance optimizations, and **multi-tenant, role-based access control**.
+A robust Django package for data synchronization with PUSH/PULL APIs, featuring JWT authentication, comprehensive logging, performance optimizations, and **multi-tenant, role-based access control** for any Django application.
 
 ## 🚀 Features
 
@@ -77,12 +77,12 @@ urlpatterns = [
 ]
 ```
 
-## 🏥 Multi-Tenant Setup
+## 🏢 Multi-Tenant Setup
 
 ### 1. Create Organizations
 
 ```bash
-# Create healthcare organizations
+# Create organizations
 python manage.py setup_organizations --action create_org --org-name "Acme Corporation" --org-slug acme-corp
 python manage.py setup_organizations --action create_org --org-name "Global Retail" --org-slug global-retail
 python manage.py setup_organizations --action create_org --org-name "City University" --org-slug city-university
@@ -204,17 +204,17 @@ Response (now includes organization info):
 
 **POST** `/api/sync/push/`
 
-Push data to Django models (now with multi-tenant permissions):
+Push data to Django models (with multi-tenant permissions):
 
 ```json
 {
     "data": [
         {
-            "_model": "healthcare.Patient",
+            "_model": "myapp.Customer",
             "name": "John Doe",
             "age": 45,
-            "department": "CARDIOLOGY",
-            "assigned_doctor_id": 1
+            "department": "SALES",
+            "assigned_manager_id": 1
         }
     ]
 }
@@ -232,7 +232,7 @@ Response:
     "success_count": 1,
     "error_count": 0,
     "processed_models": {
-        "healthcare.Patient": {
+        "myapp.Customer": {
             "created": 1,
             "updated": 0
         }
@@ -245,13 +245,13 @@ Response:
 
 **POST** `/api/sync/pull/`
 
-Pull data from Django models (now with role-based filtering):
+Pull data from Django models (with role-based filtering):
 
 ```json
 {
     "models": {
-        "healthcare.Patient": "2024-01-14T10:00:00Z",
-        "healthcare.PatientVisit": "2024-01-14T10:00:00Z"
+        "myapp.Customer": "2024-01-14T10:00:00Z",
+        "myapp.Order": "2024-01-14T10:00:00Z"
     },
     "batch_size": 100
 }
@@ -262,22 +262,22 @@ Headers:
 Authorization: Bearer <your_jwt_token>
 ```
 
-Response (with role-based filtering):
+Response:
 ```json
 {
     "data": [
         {
-            "_model": "healthcare.Patient",
+            "_model": "myapp.Customer",
             "id": 1,
             "name": "John Doe",
             "age": 45,
-            "department": "CARDIOLOGY",
-            "assigned_doctor_id": 1,
+            "department": "SALES",
+            "assigned_manager_id": 1,
             "organization": 1
         }
     ],
     "metadata": {
-        "healthcare.Patient": {
+        "myapp.Customer": {
             "count": 1,
             "last_sync": "2024-01-15T10:30:00Z",
             "user_last_sync": "2024-01-14T10:00:00Z"
@@ -383,7 +383,7 @@ class PerformanceMetrics(models.Model):
 
 #### Organization
 
-Represents hospitals, clinics, or healthcare organizations:
+Represents organizations, companies, or institutions:
 
 ```python
 class Organization(models.Model):
@@ -405,10 +405,11 @@ class UserOrganization(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
     role = models.CharField(max_length=50, choices=[
         ('ADMIN', 'Administrator'),
-        ('DOCTOR', 'Doctor'),
-        ('NURSE', 'Nurse'),
-        ('LAB_TECH', 'Lab Technician'),
-        ('PHARMACIST', 'Pharmacist'),
+        ('MANAGER', 'Manager'),
+        ('USER', 'User'),
+        ('ANALYST', 'Analyst'),
+        ('SALES', 'Sales'),
+        ('SUPPORT', 'Support'),
         ('READ_ONLY', 'Read Only'),
     ], db_index=True)
     is_active = models.BooleanField(default=True)
@@ -758,10 +759,10 @@ headers = {'Authorization': f'Bearer {token}'}
 push_data = {
     'data': [
         {
-            '_model': 'healthcare.Patient',
+            '_model': 'myapp.Customer',
             'name': 'John Doe',
-            'department': 'CARDIOLOGY',
-            'assigned_doctor_id': 1
+            'department': 'SALES',
+            'assigned_manager_id': 1
         }
     ]
 }
@@ -772,8 +773,8 @@ print(response.json())
 # Pull data (with role-based filtering)
 pull_data = {
     'models': {
-        'healthcare.Patient': '2024-01-14T10:00:00Z',
-        'healthcare.PatientVisit': '2024-01-14T10:00:00Z'
+        'myapp.Customer': '2024-01-14T10:00:00Z',
+        'myapp.Order': '2024-01-14T10:00:00Z'
     },
     'batch_size': 100
 }
@@ -793,57 +794,57 @@ The package provides comprehensive error handling:
 - **Database Errors**: Transaction rollback on errors
 - **Partial Success Handling**: Graceful handling of partial failures
 
-## 🏥 Healthcare Use Case
+## 🏢 Multi-Tenant Use Case
 
-### Scenario: Multiple Hospitals
+### Scenario: Multiple Organizations
 
-The system supports complex healthcare scenarios with multiple hospitals:
+The system supports complex multi-tenant scenarios with multiple organizations:
 
 ```python
-# Hospital A (City General) - Dr. Smith
+# Organization A (Acme Corp) - Manager Smith
 POST /api/sync/push/
 {
     "data": [
         {
-            "_model": "healthcare.Patient",
+            "_model": "myapp.Customer",
             "name": "John Doe",
-            "department": "CARDIOLOGY",
-            "assigned_doctor_id": 1
+            "department": "SALES",
+            "assigned_manager_id": 1
         }
     ]
 }
-# ✅ Success - Dr. Smith has permission
+# ✅ Success - Manager Smith has permission
 
-# Hospital B (Riverside) - Nurse Wilson  
+# Organization B (Global Retail) - Sales Wilson  
 POST /api/sync/pull/
 {
-    "models": {"healthcare.Patient": "2024-01-14T10:00:00Z"}
+    "models": {"myapp.Customer": "2024-01-14T10:00:00Z"}
 }
-# ✅ Success - Nurse Wilson gets only her assigned patients
+# ✅ Success - Sales Wilson gets only their assigned customers
 
-# Hospital C (Community) - Lab Tech Garcia
+# Organization C (City University) - Analyst Garcia
 POST /api/sync/push/
 {
     "data": [
         {
-            "_model": "healthcare.LabInvestigation",
-            "patient_id": 5,
-            "test_type": "BLOOD_TEST",
-            "results": "Normal"
+            "_model": "myapp.Report",
+            "customer_id": 5,
+            "report_type": "ANALYSIS",
+            "results": "Positive"
         }
     ]
 }
-# ✅ Success - Lab Tech has permission for lab investigations
+# ✅ Success - Analyst has permission for reports
 ```
 
-### Key Benefits for Healthcare:
+### Key Benefits for Multi-Tenant Applications:
 
-1. **🔒 Data Isolation**: Each hospital only sees their own data
+1. **🔒 Data Isolation**: Each organization only sees their own data
 2. **👥 Role-Based Access**: Different roles have appropriate permissions
 3. **📊 Granular Control**: Filter by department, assigned staff, etc.
 4. **🔄 Per-User Sync Tracking**: Each user has their own sync history
-5. **⚡ Performance**: Optimized for high-volume healthcare data
-6. **🛡️ Security**: Meets healthcare data privacy requirements
+5. **⚡ Performance**: Optimized for high-volume data processing
+6. **🛡️ Security**: Meets enterprise data privacy requirements
 
 ## 🤝 Contributing
 

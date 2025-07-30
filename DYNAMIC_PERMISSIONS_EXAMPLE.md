@@ -174,12 +174,12 @@ python manage.py dynamic_permissions --action validate \
     --config-file permissions.json
 ```
 
-## 🏥 Healthcare Example
+## 🏢 E-commerce Example
 
-### Discover Healthcare Models
+### Discover E-commerce Models
 
 ```bash
-python manage.py dynamic_permissions --action discover --app-label healthcare
+python manage.py dynamic_permissions --action discover --app-label ecommerce
 
 # Output:
 # Discovered 6 models:

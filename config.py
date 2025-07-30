@@ -89,7 +89,7 @@ class SyncConfig:
         'INCLUDE_APPS': [
             # List of apps whose models will be synced
             # Empty list = include all apps
-            # Example: ['myapp', 'healthcare', 'ecommerce']
+            # Example: ['myapp', 'ecommerce', 'inventory']
         ],
         'EXCLUDE_MODELS': [
             # Models within the included apps that will be excluded from sync
