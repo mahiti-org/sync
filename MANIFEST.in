@@ -1,0 +1,24 @@
+include README.md
+include LICENSE
+include requirements.txt
+include pytest.ini
+include test_settings.py
+include test_urls.py
+include test_wsgi.py
+
+recursive-include templates *
+recursive-include templatetags *
+recursive-include management *
+recursive-include tests *
+
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude *.so
+global-exclude .DS_Store
+global-exclude .git*
+global-exclude .env*
+global-exclude *.log
+global-exclude *.sqlite3
+global-exclude *.db 
