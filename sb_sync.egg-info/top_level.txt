@@ -1,7 +1,0 @@
-build
-demo_app
-dist
-logs
-sb_sync
-test_app
-test_project

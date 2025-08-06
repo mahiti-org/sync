@@ -1057,7 +1057,15 @@ For issues and questions:
 
 ## 📋 Changelog
 
-### **v1.7.0** (Latest) - 2024-01-XX
+### **v1.8.0** (Latest) - 2024-01-XX
+**🔧 Template Tag Fix & Version Display**
+- **Fixed**: Template tag loading error for get_version in base.html
+- **Added**: {% load sb_sync_extras %} to properly load custom template tags
+- **Fixed**: Version display in configuration interface sidebar
+- **Improved**: Template error handling and tag registration
+- **Tested**: Template rendering without errors
+
+### **v1.7.0** - 2024-01-XX
 **🚀 Persistent Configuration Storage**
 - **Added**: SyncConfiguration model for persistent database storage
 - **Implemented**: Database-backed configuration with JSONField support
