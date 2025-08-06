@@ -10,15 +10,28 @@ This guide will help you publish the SB Sync package to PyPI (Python Package Ind
 - **TestPyPI Account**: Create an account at [test.pypi.org](https://test.pypi.org) for testing
 - **API Tokens**: Generate API tokens for both PyPI and TestPyPI
 
-### 2. Install Publishing Tools
+### 2. Setup Virtual Environment (Recommended)
 
 ```bash
-pip install --upgrade build twine
+# Create virtual environment
+python3 -m venv .venv
+
+# Activate virtual environment
+source .venv/bin/activate  # On macOS/Linux
+# .venv\Scripts\activate  # On Windows
+
+# Install publishing tools
+pip install --upgrade pip setuptools wheel
+pip install build twine
 ```
 
 ### 3. Build the Package
 
 ```bash
+# Clean previous builds (optional)
+rm -rf build/ dist/ *.egg-info/
+
+# Build the package
 python -m build
 ```
 
@@ -40,6 +53,9 @@ twine upload --repository testpypi dist/*
 
 # Test installation from TestPyPI
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ sb-sync
+
+# Test import
+python -c "import sb_sync; print(f'SB Sync version: {sb_sync.__version__}')"
 ```
 
 ### 6. Upload to PyPI
