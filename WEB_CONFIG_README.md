@@ -289,4 +289,104 @@ The web interface uses these API endpoints:
 - **Fast**: Optimized for performance
 - **Reliable**: Robust error handling
 
-The web-based configuration interface provides a powerful, user-friendly way to manage your SB Sync system without needing to edit configuration files or use command-line tools. 
+The web-based configuration interface provides a powerful, user-friendly way to manage your SB Sync system without needing to edit configuration files or use command-line tools.
+
+---
+
+## 📋 Web Interface Changelog
+
+### **v1.5.3** - Web Interface Improvements
+- **Enhanced**: Package structure for better web asset management
+- **Fixed**: Template and static file inclusion in package distribution
+- **Improved**: Installation process for web interface components
+- **Updated**: Documentation with installation troubleshooting
+
+### **v1.5.0** - Web Interface Introduction
+- **Added**: Complete web-based configuration dashboard
+- **Added**: Visual permission matrix with checkbox controls
+- **Added**: Model discovery configuration interface  
+- **Added**: Real-time sync logs viewer with filtering
+- **Added**: Performance metrics visualization with Chart.js
+- **Added**: Audit trails browser with search and pagination
+- **Added**: Bootstrap 5 responsive design
+- **Added**: Font Awesome icons for better UX
+- **Added**: AJAX-powered real-time updates
+- **Added**: Bulk permission management operations
+- **Added**: Export functionality for logs and metrics
+- **Added**: Mobile-responsive design for all devices
+
+### **Key Features Introduced**
+
+#### **Dashboard (v1.5.0)**
+- System overview with key statistics
+- Quick action buttons for common tasks
+- Real-time status indicators
+- Navigation to all major sections
+
+#### **Permission Matrix (v1.5.0)**
+- Visual grid of models vs. groups/organizations
+- Checkbox-based permission management
+- Bulk operations for efficient management
+- Real-time updates via AJAX
+- Color-coded permission states
+
+#### **Model Discovery (v1.5.0)**
+- Visual configuration of `INCLUDE_APPS`
+- Management of `EXCLUDE_MODELS`
+- Real-time model discovery preview
+- Validation and error checking
+
+#### **Sync Logs (v1.5.0)**
+- Paginated log viewing
+- Advanced filtering options
+- Export to CSV functionality
+- Real-time log refresh
+- Search and sort capabilities
+
+#### **Performance Metrics (v1.5.0)**
+- Interactive charts with Chart.js
+- Historical performance data
+- System resource monitoring
+- Sync operation analytics
+- Exportable reports
+
+#### **Audit Trails (v1.5.0)**
+- Complete change history for all models
+- User attribution for all changes
+- Field-level change tracking
+- Advanced search and filtering
+- Export capabilities for compliance
+
+### **Technical Implementation**
+
+#### **Frontend Technologies**
+- **Bootstrap 5**: Modern, responsive CSS framework
+- **Font Awesome 6**: Comprehensive icon library
+- **Chart.js 3**: Interactive charts and visualizations
+- **jQuery**: DOM manipulation and AJAX requests
+- **Custom CSS**: Tailored styling for SB Sync branding
+
+#### **Backend Integration**
+- **Django Templates**: Server-side rendering
+- **Django REST Framework**: API endpoints for AJAX
+- **Custom Template Tags**: Enhanced template functionality
+- **CSRF Protection**: Secure form submissions
+- **Permission Decorators**: Staff-only access control
+
+#### **User Experience Features**
+- **Responsive Design**: Works on desktop, tablet, and mobile
+- **Real-time Updates**: Live data refresh without page reloads
+- **Intuitive Navigation**: Clear menu structure and breadcrumbs
+- **Loading States**: Visual feedback during operations
+- **Error Handling**: User-friendly error messages
+- **Success Notifications**: Confirmation of completed actions
+
+### **Future Enhancements**
+
+Planned improvements for upcoming versions:
+- **Advanced Analytics**: More detailed performance insights
+- **Custom Dashboards**: User-configurable dashboard widgets
+- **API Documentation**: Interactive API explorer
+- **Backup Management**: Web-based backup and restore
+- **User Management**: Web interface for user administration
+- **Notification Center**: Real-time alerts and notifications 
