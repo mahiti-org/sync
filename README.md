@@ -1057,7 +1057,7 @@ For issues and questions:
 
 ## 📋 Changelog
 
-### **v1.8.0** (Latest) - 2024-01-XX
+### **v1.8.0** (Latest) - 2025-08-06
 **🔧 Template Tag Fix & Version Display**
 - **Fixed**: Template tag loading error for get_version in base.html
 - **Added**: {% load sb_sync_extras %} to properly load custom template tags
@@ -1065,7 +1065,7 @@ For issues and questions:
 - **Improved**: Template error handling and tag registration
 - **Tested**: Template rendering without errors
 
-### **v1.7.0** - 2024-01-XX
+### **v1.7.0** - 2025-08-06
 **🚀 Persistent Configuration Storage**
 - **Added**: SyncConfiguration model for persistent database storage
 - **Implemented**: Database-backed configuration with JSONField support
@@ -1077,7 +1077,7 @@ For issues and questions:
 - **Added**: Proper indexing and constraints for configuration table
 - **Tested**: Configuration persistence and model discovery functionality
 
-### **v1.6.1** - 2024-01-XX
+### **v1.6.1** - 2025-08-06
 **🔧 Template Tag Fix & Bug Resolution**
 - **Fixed**: AttributeError in permission matrix template ('bool' object has no attribute 'get')
 - **Enhanced**: lookup filter in sb_sync_extras.py to handle multiple data types
@@ -1085,7 +1085,7 @@ For issues and questions:
 - **Improved**: Error handling for template tag operations
 - **Tested**: Permission matrix endpoint accessibility and functionality
 
-### **v1.6.0** - 2024-01-XX
+### **v1.6.0** - 2025-08-06
 **🔧 Model Discovery Logic Enhancement**
 - **Fixed**: Model discovery logic to exclude Django built-in apps when INCLUDE_APPS is empty
 - **Fixed**: Excluded sb-sync app itself and its dependencies from model discovery
@@ -1096,7 +1096,7 @@ For issues and questions:
 - **Tested**: Model discovery logic with custom test apps
 - **Improved**: Server startup reliability and dependency management
 
-### **v1.5.3** - 2024-01-XX
+### **v1.5.3** - 2025-08-06
 **🔧 Package Installation Fixes**
 - **Fixed**: Resolved pip installation issues with proper package structure
 - **Fixed**: Moved all files to `sb_sync/` directory for correct Python package layout
@@ -1106,7 +1106,7 @@ For issues and questions:
 - **Updated**: Project URLs to point to correct GitHub repository
 - **Tested**: Package installation and import functionality
 
-### **v1.5.2** - 2024-01-XX
+### **v1.5.2** - 2025-08-06
 **🔧 Django 5.2.x Compatibility & Installation Fixes**
 - **Added**: Support for Django 5.2.x
 - **Updated**: Django version constraint from `<5.1` to `<5.3`
@@ -1114,7 +1114,7 @@ For issues and questions:
 - **Fixed**: Package structure for proper pip installation
 - **Added**: Comprehensive Django compatibility documentation
 
-### **v1.5.1** - 2024-01-XX
+### **v1.5.1** - 2025-08-06
 **🔧 Django Compatibility Enhancement**
 - **Added**: Support for Django 5.1.x and 5.2.x
 - **Updated**: Django version requirements to support broader range
