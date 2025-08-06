@@ -1,4 +1,4 @@
-__version__ = '1.6.1'
+__version__ = '1.7.0'
 
 # sb_sync/apps.py
 from django.apps import AppConfig

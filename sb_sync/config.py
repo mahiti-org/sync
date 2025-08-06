@@ -123,36 +123,92 @@ class SyncConfig:
     
     @classmethod
     def get_config(cls, section: str = None, key: str = None) -> Any:
-        """Get configuration value"""
-        if section is None:
-            return {
-                'CORE': cls.CORE,
-                'ADVANCED': cls.ADVANCED,
-                'ERROR': cls.ERROR,
-                'PERFORMANCE': cls.PERFORMANCE,
-                'SECURITY': cls.SECURITY,
-                'MODEL_DISCOVERY': cls.MODEL_DISCOVERY,
-
-                'PERMISSIONS': cls.PERMISSIONS,
-            }
-        
-        section_config = getattr(cls, section.upper(), {})
-        
-        if key is None:
-            return section_config
-        
-        return section_config.get(key)
+        """Get configuration value from database with fallback to defaults"""
+        try:
+            from .models import SyncConfiguration
+            
+            if section is None:
+                # Return all sections with database values merged with defaults
+                sections = {
+                    'CORE': cls.CORE.copy(),
+                    'ADVANCED': cls.ADVANCED.copy(),
+                    'ERROR': cls.ERROR.copy(),
+                    'PERFORMANCE': cls.PERFORMANCE.copy(),
+                    'SECURITY': cls.SECURITY.copy(),
+                    'MODEL_DISCOVERY': cls.MODEL_DISCOVERY.copy(),
+                    'PERMISSIONS': cls.PERMISSIONS.copy(),
+                }
+                
+                # Merge database values with defaults
+                for section_name in sections:
+                    db_section = SyncConfiguration.get_section(section_name)
+                    sections[section_name].update(db_section)
+                
+                return sections
+            
+            section_config = getattr(cls, section.upper(), {}).copy()
+            
+            if key is None:
+                # Return entire section with database values merged
+                db_section = SyncConfiguration.get_section(section)
+                section_config.update(db_section)
+                return section_config
+            
+            # Try database first, then fallback to defaults
+            db_value = SyncConfiguration.get_value(section, key)
+            if db_value is not None:
+                return db_value
+            
+            return section_config.get(key)
+            
+        except Exception as e:
+            # Fallback to in-memory defaults if database is not available
+            logger.warning(f"Database configuration not available, using defaults: {e}")
+            
+            if section is None:
+                return {
+                    'CORE': cls.CORE,
+                    'ADVANCED': cls.ADVANCED,
+                    'ERROR': cls.ERROR,
+                    'PERFORMANCE': cls.PERFORMANCE,
+                    'SECURITY': cls.SECURITY,
+                    'MODEL_DISCOVERY': cls.MODEL_DISCOVERY,
+                    'PERMISSIONS': cls.PERMISSIONS,
+                }
+            
+            section_config = getattr(cls, section.upper(), {})
+            
+            if key is None:
+                return section_config
+            
+            return section_config.get(key)
     
     @classmethod
     def set_config(cls, section: str, key: str, value: Any) -> None:
-        """Set configuration value"""
-        section_name = section.upper()
-        if hasattr(cls, section_name):
-            section_config = getattr(cls, section_name)
-            section_config[key] = value
-            logger.info(f"Configuration updated: {section}.{key} = {value}")
-        else:
-            logger.error(f"Invalid configuration section: {section}")
+        """Set configuration value in database"""
+        try:
+            from .models import SyncConfiguration
+            
+            # Validate section
+            section_name = section.upper()
+            if not hasattr(cls, section_name):
+                logger.error(f"Invalid configuration section: {section}")
+                return
+            
+            # Store in database
+            SyncConfiguration.set_value(section, key, value)
+            logger.info(f"Configuration updated in database: {section}.{key} = {value}")
+            
+        except Exception as e:
+            # Fallback to in-memory storage if database is not available
+            logger.warning(f"Database not available, using in-memory storage: {e}")
+            section_name = section.upper()
+            if hasattr(cls, section_name):
+                section_config = getattr(cls, section_name)
+                section_config[key] = value
+                logger.info(f"Configuration updated in memory: {section}.{key} = {value}")
+            else:
+                logger.error(f"Invalid configuration section: {section}")
     
     @classmethod
     def get_all_models(cls) -> List[str]:

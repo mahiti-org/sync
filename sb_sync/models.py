@@ -244,3 +244,87 @@ class DataFilter(models.Model):
     
     def __str__(self):
         return f"{self.organization.name} - {self.group.name} - {self.model_name} - {self.filter_name}"
+
+
+class SyncConfiguration(models.Model):
+    """Persistent configuration storage for sb-sync"""
+    SECTION_CHOICES = [
+        ('CORE', 'Core'),
+        ('ADVANCED', 'Advanced'),
+        ('ERROR', 'Error Handling'),
+        ('PERFORMANCE', 'Performance'),
+        ('SECURITY', 'Security'),
+        ('MODEL_DISCOVERY', 'Model Discovery'),
+        ('PERMISSIONS', 'Permissions'),
+    ]
+    
+    section = models.CharField(max_length=20, choices=SECTION_CHOICES, db_index=True)
+    key = models.CharField(max_length=100, db_index=True)
+    value = models.JSONField()  # Store any type of value (string, list, dict, bool, etc.)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # History tracking
+    history = HistoricalRecords(
+        table_name='sb_sync_configuration_history',
+        verbose_name='Sync Configuration History',
+        related_name='sync_configuration_history'
+    )
+    
+    class Meta:
+        db_table = 'sb_sync_configuration'
+        unique_together = ['section', 'key']
+        indexes = [
+            models.Index(fields=['section', 'key']),
+            models.Index(fields=['section', 'is_active']),
+        ]
+        ordering = ['section', 'key']
+    
+    def __str__(self):
+        return f"{self.section}.{self.key} = {self.value}"
+    
+    @classmethod
+    def get_value(cls, section, key, default=None):
+        """Get configuration value from database"""
+        try:
+            config = cls.objects.get(section=section, key=key, is_active=True)
+            return config.value
+        except cls.DoesNotExist:
+            return default
+    
+    @classmethod
+    def set_value(cls, section, key, value, description=""):
+        """Set configuration value in database"""
+        config, created = cls.objects.get_or_create(
+            section=section,
+            key=key,
+            defaults={
+                'value': value,
+                'description': description,
+                'is_active': True
+            }
+        )
+        if not created:
+            config.value = value
+            config.description = description
+            config.save()
+        return config
+    
+    @classmethod
+    def get_section(cls, section):
+        """Get all configuration values for a section"""
+        configs = cls.objects.filter(section=section, is_active=True)
+        return {config.key: config.value for config in configs}
+    
+    @classmethod
+    def delete_value(cls, section, key):
+        """Delete a configuration value"""
+        cls.objects.filter(section=section, key=key).update(is_active=False)
+    
+    def save(self, *args, **kwargs):
+        # Invalidate cache on save
+        cache_key = f"sync_config_{self.section}_{self.key}"
+        cache.delete(cache_key)
+        super().save(*args, **kwargs)

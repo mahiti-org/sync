@@ -1057,7 +1057,19 @@ For issues and questions:
 
 ## 📋 Changelog
 
-### **v1.6.1** (Latest) - 2024-01-XX
+### **v1.7.0** (Latest) - 2024-01-XX
+**🚀 Persistent Configuration Storage**
+- **Added**: SyncConfiguration model for persistent database storage
+- **Implemented**: Database-backed configuration with JSONField support
+- **Added**: History tracking for configuration changes with Django Simple History
+- **Enhanced**: get_config() and set_config() methods with database fallback
+- **Fixed**: Configuration persistence across server restarts
+- **Added**: Graceful fallback to in-memory storage if database unavailable
+- **Improved**: Model discovery with persistent INCLUDE_APPS configuration
+- **Added**: Proper indexing and constraints for configuration table
+- **Tested**: Configuration persistence and model discovery functionality
+
+### **v1.6.1** - 2024-01-XX
 **🔧 Template Tag Fix & Bug Resolution**
 - **Fixed**: AttributeError in permission matrix template ('bool' object has no attribute 'get')
 - **Enhanced**: lookup filter in sb_sync_extras.py to handle multiple data types

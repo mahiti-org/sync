@@ -1,0 +1,5 @@
+{
+    "ExampleModel": {
+        "fields": ["id", "name", "description", "category", "tags"]
+    }
+}
