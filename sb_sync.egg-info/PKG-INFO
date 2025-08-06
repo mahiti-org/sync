@@ -1,14 +1,18 @@
 Metadata-Version: 2.4
 Name: sb-sync
-Version: 1.5.1
+Version: 1.5.3
 Summary: Django package for data synchronization with PUSH/PULL APIs
 Home-page: https://github.com/TheSocialBytes/sync
-Author: Your Name
-Author-email: your.email@example.com
-Project-URL: Bug Reports, https://github.com/TheSocialBytes/sync/issues
-Project-URL: Source, https://github.com/TheSocialBytes/sync
+Author: TheSocialBytes
+Author-email: TheSocialBytes <info@thesocialbytes.com>
+Maintainer-email: TheSocialBytes <info@thesocialbytes.com>
+License: MIT
+Project-URL: Homepage, https://github.com/TheSocialBytes/sync
 Project-URL: Documentation, https://github.com/TheSocialBytes/sync/blob/main/README.md
-Project-URL: Changelog, https://github.com/TheSocialBytes/sync/blob/main/README.md
+Project-URL: Repository, https://github.com/TheSocialBytes/sync
+Project-URL: Bug Tracker, https://github.com/TheSocialBytes/sync/issues
+Project-URL: Changelog, https://github.com/TheSocialBytes/sync/blob/main/README.md#-changelog
+Keywords: django,synchronization,api,multi-tenant,audit-trails
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -34,6 +38,7 @@ Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: System :: Networking
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: Django<5.3,>=3.2
 Requires-Dist: djangorestframework>=3.14.0
 Requires-Dist: PyJWT>=2.6.0
@@ -170,16 +175,9 @@ Requires-Dist: pyinstrument>=4.0.0; extra == "monitoring"
 Requires-Dist: scalene>=1.5.0; extra == "monitoring"
 Requires-Dist: fil>=0.0.3; extra == "monitoring"
 Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
 Dynamic: home-page
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
+Dynamic: license-file
 Dynamic: requires-python
-Dynamic: summary
 
 # SB Sync - Django Data Synchronization Package
 
@@ -1238,9 +1236,124 @@ For issues and questions:
 - Monitor Celery task logs for background operations
 - Check performance metrics: `/api/sync/performance/`
 
-## 🔄 Version History
+## 📋 Changelog
 
-- **v1.4.0**: Removed dynamic data sources functionality, streamlined package for Django model synchronization, improved code organization and documentation cleanup
-- **v1.3.0**: Include-based model discovery, enhanced configuration system, improved test coverage, and comprehensive documentation cleanup
-- **v1.1.0**: Enhanced configuration system, performance optimizations, and improved error handling
-- **v1.0.0**: Initial release with PUSH/PULL APIs, JWT authentication, and comprehensive logging 
+### **v1.5.3** (Latest) - 2024-01-XX
+**🔧 Package Installation Fixes**
+- **Fixed**: Resolved pip installation issues with proper package structure
+- **Fixed**: Moved all files to `sb_sync/` directory for correct Python package layout
+- **Fixed**: Cleaned up excessive dependencies in `setup.py`
+- **Fixed**: Removed invalid entry points that caused installation errors
+- **Added**: `MANIFEST.in` file for proper package data inclusion
+- **Updated**: Project URLs to point to correct GitHub repository
+- **Tested**: Package installation and import functionality
+
+### **v1.5.2** - 2024-01-XX
+**🔧 Django 5.2.x Compatibility & Installation Fixes**
+- **Added**: Support for Django 5.2.x
+- **Updated**: Django version constraint from `<5.1` to `<5.3`
+- **Added**: Django 5.1 and 5.2 framework classifiers
+- **Fixed**: Package structure for proper pip installation
+- **Added**: Comprehensive Django compatibility documentation
+
+### **v1.5.1** - 2024-01-XX
+**🔧 Django Compatibility Enhancement**
+- **Added**: Support for Django 5.1.x and 5.2.x
+- **Updated**: Django version requirements to support broader range
+- **Added**: Django compatibility table in documentation
+- **Fixed**: Version constraints in setup.py
+
+### **v1.5.0** - 2024-01-XX
+**🌐 Web-Based Configuration Interface & Audit Trails**
+- **Added**: Complete web-based configuration interface with dashboard
+- **Added**: Visual permission matrix for model permissions management
+- **Added**: Model discovery configuration UI
+- **Added**: Sync logs viewer with real-time updates
+- **Added**: Performance metrics visualization with charts
+- **Added**: Django Simple History integration for comprehensive audit trails
+- **Added**: Audit trails management command (`setup_audit_trails`)
+- **Added**: Custom template tags for enhanced UI functionality
+- **Enhanced**: Admin interface with historical records support
+- **Updated**: All sync models with audit trail capabilities
+- **Added**: Bootstrap 5, Font Awesome, and Chart.js for modern UI
+
+### **v1.4.0** - 2024-01-XX
+**🧹 Package Streamlining & Code Organization**
+- **Removed**: Dynamic data sources functionality for focused scope
+- **Improved**: Code organization and structure
+- **Enhanced**: Documentation clarity and completeness
+- **Streamlined**: Package for Django model synchronization focus
+- **Cleaned**: Codebase organization and removed unused components
+
+### **v1.3.0** - 2024-01-XX
+**🔍 Model Discovery & Configuration Enhancement**
+- **Added**: Include-based model discovery system
+- **Enhanced**: Configuration system with better flexibility
+- **Improved**: Test coverage across all components
+- **Updated**: Comprehensive documentation cleanup
+- **Added**: Model introspection capabilities
+- **Enhanced**: Error handling and validation
+
+### **v1.2.0** - 2024-01-XX
+**🚀 Performance & Multi-Tenant Features**
+- **Added**: Multi-tenant support with organization-based isolation
+- **Added**: Role-based access control (RBAC)
+- **Enhanced**: Performance optimizations with bulk operations
+- **Added**: Comprehensive health monitoring
+- **Improved**: Background task processing with Celery
+- **Added**: Advanced caching mechanisms
+
+### **v1.1.0** - 2024-01-XX
+**⚡ Performance & Error Handling**
+- **Enhanced**: Configuration system flexibility
+- **Added**: Performance optimizations for large datasets
+- **Improved**: Error handling and reporting mechanisms
+- **Added**: Advanced logging capabilities
+- **Enhanced**: Data validation processes
+
+### **v1.0.0** - 2024-01-XX
+**🎉 Initial Release**
+- **Added**: PUSH/PULL API endpoints for bidirectional sync
+- **Added**: JWT authentication system
+- **Added**: Comprehensive logging infrastructure
+- **Added**: Basic model synchronization capabilities
+- **Added**: Health check endpoints
+- **Added**: Initial documentation and setup guides
+
+---
+
+## 🔄 Migration Guide
+
+### **Upgrading to v1.5.x**
+
+If you're upgrading from an earlier version:
+
+1. **Update your installation**:
+   ```bash
+   pip install --upgrade sb-sync
+   ```
+
+2. **Run new migrations**:
+   ```bash
+   python manage.py migrate
+   ```
+
+3. **Setup audit trails** (recommended):
+   ```bash
+   python manage.py setup_audit_trails --action setup
+   ```
+
+4. **Access new web interface**:
+   - Navigate to: `http://your-domain/api/sync/config/`
+   - Login with admin/staff credentials
+
+### **Breaking Changes**
+
+- **v1.4.0**: Removed dynamic data sources - migrate to model-based sync
+- **v1.5.0**: Added new dependencies (`django-simple-history`) - run `pip install --upgrade sb-sync`
+
+### **New Features Guide**
+
+- **Web Interface**: Access at `/api/sync/config/` for visual management
+- **Audit Trails**: Use management command to setup and manage historical records
+- **Django 5.2.x**: Full compatibility with latest Django versions 

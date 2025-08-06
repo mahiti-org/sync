@@ -1,5 +1,7 @@
+LICENSE
 MANIFEST.in
 README.md
+pyproject.toml
 pytest.ini
 setup.py
 sb_sync/__init__.py
@@ -29,6 +31,19 @@ sb_sync.egg-info/dependency_links.txt
 sb_sync.egg-info/requires.txt
 sb_sync.egg-info/top_level.txt
 sb_sync/management/__init__.py
+sb_sync/management/commands/dynamic_permissions.py
+sb_sync/management/commands/manage_config.py
+sb_sync/management/commands/optimize_performance.py
+sb_sync/management/commands/setup_audit_trails.py
+sb_sync/management/commands/setup_organizations.py
+sb_sync/management/commands/show_models.py
+sb_sync/templates/sb_sync/audit_trails.html
+sb_sync/templates/sb_sync/base.html
+sb_sync/templates/sb_sync/config_dashboard.html
+sb_sync/templates/sb_sync/model_discovery_config.html
+sb_sync/templates/sb_sync/performance_metrics.html
+sb_sync/templates/sb_sync/permission_matrix.html
+sb_sync/templates/sb_sync/sync_logs.html
 sb_sync/templatetags/__init__.py
 sb_sync/templatetags/sb_sync_extras.py
 sb_sync/tests/__init__.py

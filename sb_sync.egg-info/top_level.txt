@@ -1,1 +1,2 @@
+dist
 sb_sync
