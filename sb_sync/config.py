@@ -164,12 +164,30 @@ class SyncConfig:
         include_apps = cls.get_config('MODEL_DISCOVERY', 'INCLUDE_APPS')
         exclude_models = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS')
         
+        # Define apps to exclude when INCLUDE_APPS is empty
+        excluded_apps = {
+            # Django built-in apps
+            'admin', 'auth', 'contenttypes', 'sessions', 'messages', 'staticfiles',
+            # sb-sync app itself
+            'sb_sync',
+            # sb-sync dependencies
+            'rest_framework', 'rest_framework_simplejwt', 'simple_history',
+            # Other common Django apps that shouldn't be synced
+            'sites', 'flatpages', 'redirects', 'humanize', 'postgres', 'mysql',
+            'oracle', 'sqlite3', 'cache', 'gis', 'localflavor'
+        }
+        
         for app_config in apps.get_app_configs():
             app_label = app_config.label
             
             # If INCLUDE_APPS is specified, only include models from those apps
-            if include_apps and app_label not in include_apps:
-                continue
+            if include_apps:
+                if app_label not in include_apps:
+                    continue
+            else:
+                # If INCLUDE_APPS is empty, exclude Django built-ins, sb-sync, and dependencies
+                if app_label in excluded_apps:
+                    continue
             
             if app_config.models_module:
                 for model in app_config.models_module.__dict__.values():
@@ -214,10 +232,29 @@ class SyncConfig:
         if model_name in exclude_models:
             return False
         
+        # Define apps to exclude when INCLUDE_APPS is empty
+        excluded_apps = {
+            # Django built-in apps
+            'admin', 'auth', 'contenttypes', 'sessions', 'messages', 'staticfiles',
+            # sb-sync app itself
+            'sb_sync',
+            # sb-sync dependencies
+            'rest_framework', 'rest_framework_simplejwt', 'simple_history',
+            # Other common Django apps that shouldn't be synced
+            'sites', 'flatpages', 'redirects', 'humanize', 'postgres', 'mysql',
+            'oracle', 'sqlite3', 'cache', 'gis', 'localflavor'
+        }
+        
+        # Get the app label from the model name
+        app_label = model_name.split('.')[0] if '.' in model_name else model_name
+        
         # If INCLUDE_APPS is specified, check if model's app is included
         if include_apps:
-            app_label = model_name.split('.')[0] if '.' in model_name else model_name
             if app_label not in include_apps:
+                return False
+        else:
+            # If INCLUDE_APPS is empty, exclude Django built-ins, sb-sync, and dependencies
+            if app_label in excluded_apps:
                 return False
         
         return True

@@ -1057,7 +1057,18 @@ For issues and questions:
 
 ## 📋 Changelog
 
-### **v1.5.3** (Latest) - 2024-01-XX
+### **v1.6.0** (Latest) - 2024-01-XX
+**🔧 Model Discovery Logic Enhancement**
+- **Fixed**: Model discovery logic to exclude Django built-in apps when INCLUDE_APPS is empty
+- **Fixed**: Excluded sb-sync app itself and its dependencies from model discovery
+- **Enhanced**: get_all_models() and is_model_enabled() methods with proper exclusion logic
+- **Added**: Comprehensive list of excluded apps (Django built-ins, sb-sync, dependencies)
+- **Fixed**: Missing dependencies (psutil, django-simple-history) installation issues
+- **Updated**: URL configuration to properly expose model discovery endpoint
+- **Tested**: Model discovery logic with custom test apps
+- **Improved**: Server startup reliability and dependency management
+
+### **v1.5.3** - 2024-01-XX
 **🔧 Package Installation Fixes**
 - **Fixed**: Resolved pip installation issues with proper package structure
 - **Fixed**: Moved all files to `sb_sync/` directory for correct Python package layout
