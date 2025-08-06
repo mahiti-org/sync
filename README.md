@@ -1057,7 +1057,15 @@ For issues and questions:
 
 ## 📋 Changelog
 
-### **v1.6.0** (Latest) - 2024-01-XX
+### **v1.6.1** (Latest) - 2024-01-XX
+**🔧 Template Tag Fix & Bug Resolution**
+- **Fixed**: AttributeError in permission matrix template ('bool' object has no attribute 'get')
+- **Enhanced**: lookup filter in sb_sync_extras.py to handle multiple data types
+- **Added**: Support for boolean values, dictionary-like objects, lists, and object attributes
+- **Improved**: Error handling for template tag operations
+- **Tested**: Permission matrix endpoint accessibility and functionality
+
+### **v1.6.0** - 2024-01-XX
 **🔧 Model Discovery Logic Enhancement**
 - **Fixed**: Model discovery logic to exclude Django built-in apps when INCLUDE_APPS is empty
 - **Fixed**: Excluded sb-sync app itself and its dependencies from model discovery
