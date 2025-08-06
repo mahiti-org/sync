@@ -34,4 +34,13 @@ def slugify(value):
     """Convert a string to a slug format"""
     if value is None:
         return ""
-    return value.replace('.', '_').replace(' ', '_').lower() 
+    return value.replace('.', '_').replace(' ', '_').lower()
+
+@register.simple_tag
+def get_version():
+    """Get the current version of sb-sync"""
+    try:
+        import sb_sync
+        return getattr(sb_sync, '__version__', '1.6.1')
+    except ImportError:
+        return '1.6.1' 
