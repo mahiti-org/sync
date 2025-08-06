@@ -111,3 +111,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/ 
+
+#PyPi
+.pypirc
