@@ -67,19 +67,36 @@
                                 <tr>
                                     <th style="min-width: 200px;">Model / Group</th>
                                     {% for group in groups %}
-                                        <th class="text-center" style="min-width: 120px;">
+                                        <th class="text-center" style="min-width: 80px;">
                                             <div class="d-flex flex-column align-items-center">
                                                 <div class="form-check mb-2">
                                                     <input class="form-check-input column-select-all" 
                                                            type="checkbox" 
-                                                           id="select_all_{{ group.id }}"
-                                                           data-group="{{ group.id }}">
+                                                           id="select_all_push_{{ group.id }}"
+                                                           data-group="{{ group.id }}"
+                                                           data-permission="can_push">
                                                     <label class="form-check-label small fw-bold" 
-                                                           for="select_all_{{ group.id }}">
-                                                        {{ group.name }}
+                                                           for="select_all_push_{{ group.id }}">
+                                                        Push
                                                     </label>
                                                 </div>
-                                                <small class="text-muted">{{ group.user_set.count }} users</small>
+                                                <small class="text-muted">{{ group.name }}</small>
+                                            </div>
+                                        </th>
+                                        <th class="text-center" style="min-width: 80px;">
+                                            <div class="d-flex flex-column align-items-center">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input column-select-all" 
+                                                           type="checkbox" 
+                                                           id="select_all_pull_{{ group.id }}"
+                                                           data-group="{{ group.id }}"
+                                                           data-permission="can_pull">
+                                                    <label class="form-check-label small fw-bold" 
+                                                           for="select_all_pull_{{ group.id }}">
+                                                        Pull
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">{{ group.name }}</small>
                                             </div>
                                         </th>
                                     {% endfor %}
@@ -101,23 +118,40 @@
                                     {% for group in groups %}
                                         <td class="text-center">
                                             <div class="permission-group" data-model="{{ model }}" data-group="{{ group.id }}">
-                                                {% for perm_type, perm_label in permission_types %}
-                                                    <div class="form-check form-check-inline d-block mb-1">
-                                                        <input class="form-check-input permission-checkbox" 
-                                                               type="checkbox" 
-                                                               id="perm_{{ model|slugify }}_{{ group.id }}_{{ perm_type }}"
-                                                               data-model="{{ model }}"
-                                                               data-group="{{ group.id }}"
-                                                               data-permission="{{ perm_type }}"
-                                                               {% with key=group.id|add:"_"|add:model %}
-                                                             {% if existing_permissions|lookup:key|lookup:perm_type %}checked{% endif %}
+                                                <div class="form-check d-block">
+                                                    <input class="form-check-input permission-checkbox" 
+                                                           type="checkbox" 
+                                                           id="perm_{{ model|slugify }}_{{ group.id }}_can_push"
+                                                           data-model="{{ model }}"
+                                                           data-group="{{ group.id }}"
+                                                           data-permission="can_push"
+                                                           {% with key=group.id|add:"_"|add:model %}
+                                                             {% if existing_permissions|lookup:key|lookup:"can_push" %}checked{% endif %}
                                                          {% endwith %}>
                                                          <label class="form-check-label small" 
-                                                                for="perm_{{ model|slugify }}_{{ group.id }}_{{ perm_type }}">
-                                                             {{ perm_label }}
+                                                                for="perm_{{ model|slugify }}_{{ group.id }}_can_push">
+                                                             Push
                                                          </label>
-                                                    </div>
-                                                {% endfor %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="permission-group" data-model="{{ model }}" data-group="{{ group.id }}">
+                                                <div class="form-check d-block">
+                                                    <input class="form-check-input permission-checkbox" 
+                                                           type="checkbox" 
+                                                           id="perm_{{ model|slugify }}_{{ group.id }}_can_pull"
+                                                           data-model="{{ model }}"
+                                                           data-group="{{ group.id }}"
+                                                           data-permission="can_pull"
+                                                           {% with key=group.id|add:"_"|add:model %}
+                                                             {% if existing_permissions|lookup:key|lookup:"can_pull" %}checked{% endif %}
+                                                         {% endwith %}>
+                                                         <label class="form-check-label small" 
+                                                                for="perm_{{ model|slugify }}_{{ group.id }}_can_pull">
+                                                             Pull
+                                                         </label>
+                                                </div>
                                             </div>
                                         </td>
                                     {% endfor %}
@@ -185,13 +219,14 @@ $(document).ready(function() {
     // Column header checkbox functionality
     $('.column-select-all').change(function() {
         const groupId = $(this).data('group');
+        const permissionType = $(this).data('permission');
         const isChecked = $(this).is(':checked');
         
         // Select/deselect all checkboxes in this column
-        $(`.permission-checkbox[data-group="${groupId}"]`).prop('checked', isChecked).trigger('change');
+        $(`.permission-checkbox[data-group="${groupId}"][data-permission="${permissionType}"]`).prop('checked', isChecked).trigger('change');
         
         // Update the column header checkbox state based on individual checkboxes
-        updateColumnHeaderState(groupId);
+        updateColumnHeaderState(groupId, permissionType);
     });
     
     // Permission checkbox change handler - Optimized for bulk operations
@@ -218,7 +253,7 @@ $(document).ready(function() {
         }
         
         // Update column header state
-        updateColumnHeaderState(group);
+        updateColumnHeaderState(group, permission);
         
         updateSaveButton();
         
@@ -232,11 +267,11 @@ $(document).ready(function() {
     });
     
     // Function to update column header checkbox state
-    function updateColumnHeaderState(groupId) {
-        const checkboxes = $(`.permission-checkbox[data-group="${groupId}"]`);
+    function updateColumnHeaderState(groupId, permissionType) {
+        const checkboxes = $(`.permission-checkbox[data-group="${groupId}"][data-permission="${permissionType}"]`);
         const checkedCount = checkboxes.filter(':checked').length;
         const totalCount = checkboxes.length;
-        const columnHeader = $(`#select_all_${groupId}`);
+        const columnHeader = $(`#select_all_${permissionType}_${groupId}`);
         
         if (checkedCount === 0) {
             columnHeader.prop('indeterminate', false).prop('checked', false);
@@ -366,7 +401,9 @@ $(document).ready(function() {
     
     // Initialize column header states
     {% for group in groups %}
-        updateColumnHeaderState({{ group.id }});
+        {% for perm_type, perm_label in permission_types %}
+            updateColumnHeaderState({{ group.id }}, '{{ perm_type }}');
+        {% endfor %}
     {% endfor %}
     
     // Initialize
