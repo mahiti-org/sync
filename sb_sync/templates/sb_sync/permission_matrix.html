@@ -6,12 +6,6 @@
 
 {% block page_actions %}
 <div class="btn-group" role="group">
-    <button type="button" class="btn btn-outline-primary" id="selectAllBtn">
-        <i class="fas fa-check-square me-1"></i>Select All
-    </button>
-    <button type="button" class="btn btn-outline-secondary" id="deselectAllBtn">
-        <i class="fas fa-square me-1"></i>Deselect All
-    </button>
     <button type="button" class="btn btn-success" id="saveChangesBtn">
         <i class="fas fa-save me-1"></i>Save Changes
     </button>
@@ -63,7 +57,7 @@
                     <i class="fas fa-shield-alt me-2"></i>
                     Model Permissions Matrix
                 </h5>
-                <small class="text-muted">Click checkboxes to grant or revoke permissions for each group</small>
+                <small class="text-muted">Use column header checkboxes to select/deselect all permissions for that group</small>
             </div>
             <div class="card-body">
                 <div class="permission-matrix">
@@ -75,7 +69,16 @@
                                     {% for group in groups %}
                                         <th class="text-center" style="min-width: 120px;">
                                             <div class="d-flex flex-column align-items-center">
-                                                <small class="fw-bold">{{ group.name }}</small>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input column-select-all" 
+                                                           type="checkbox" 
+                                                           id="select_all_{{ group.id }}"
+                                                           data-group="{{ group.id }}">
+                                                    <label class="form-check-label small fw-bold" 
+                                                           for="select_all_{{ group.id }}">
+                                                        {{ group.name }}
+                                                    </label>
+                                                </div>
                                                 <small class="text-muted">{{ group.user_set.count }} users</small>
                                             </div>
                                         </th>
@@ -106,7 +109,7 @@
                                                                data-model="{{ model }}"
                                                                data-group="{{ group.id }}"
                                                                data-permission="{{ perm_type }}"
-                                                                                                                        {% with key=group.id|add:"_"|add:model %}
+                                                               {% with key=group.id|add:"_"|add:model %}
                                                              {% if existing_permissions|lookup:key|lookup:perm_type %}checked{% endif %}
                                                          {% endwith %}>
                                                          <label class="form-check-label small" 
@@ -152,14 +155,6 @@
                                 Allow pushing data to this model
                             {% elif perm_type == 'can_pull' %}
                                 Allow pulling data from this model
-                            {% elif perm_type == 'can_create' %}
-                                Allow creating new records
-                            {% elif perm_type == 'can_update' %}
-                                Allow updating existing records
-                            {% elif perm_type == 'can_delete' %}
-                                Allow deleting records
-                            {% elif perm_type == 'can_read' %}
-                                Allow reading/viewing records
                             {% endif %}
                         </small>
                     </div>
@@ -179,6 +174,7 @@
 $(document).ready(function() {
     let pendingChanges = [];
     let isSaving = false;
+    let saveTimeout = null;
     
     // Organization selector
     $('#organizationSelect').change(function() {
@@ -186,7 +182,19 @@ $(document).ready(function() {
         window.location.href = `/api/sync/config/permissions/${orgId}/`;
     });
     
-    // Permission checkbox change handler
+    // Column header checkbox functionality
+    $('.column-select-all').change(function() {
+        const groupId = $(this).data('group');
+        const isChecked = $(this).is(':checked');
+        
+        // Select/deselect all checkboxes in this column
+        $(`.permission-checkbox[data-group="${groupId}"]`).prop('checked', isChecked).trigger('change');
+        
+        // Update the column header checkbox state based on individual checkboxes
+        updateColumnHeaderState(groupId);
+    });
+    
+    // Permission checkbox change handler - Optimized for bulk operations
     $('.permission-checkbox').change(function() {
         const model = $(this).data('model');
         const group = $(this).data('group');
@@ -209,105 +217,108 @@ $(document).ready(function() {
             });
         }
         
+        // Update column header state
+        updateColumnHeaderState(group);
+        
         updateSaveButton();
-        showStatusMessage('info', `Permission ${permission} for ${model} updated to ${value}`);
+        
+        // Auto-save after 2 seconds of inactivity (debounced)
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            if (pendingChanges.length > 0) {
+                saveChanges();
+            }
+        }, 2000);
     });
     
-    // Select all permissions for a group
-    $('th').click(function() {
-        if ($(this).find('.permission-checkbox').length > 0) {
-            const isChecked = $(this).find('.permission-checkbox:checked').length === $(this).find('.permission-checkbox').length;
-            $(this).find('.permission-checkbox').prop('checked', !isChecked).trigger('change');
+    // Function to update column header checkbox state
+    function updateColumnHeaderState(groupId) {
+        const checkboxes = $(`.permission-checkbox[data-group="${groupId}"]`);
+        const checkedCount = checkboxes.filter(':checked').length;
+        const totalCount = checkboxes.length;
+        const columnHeader = $(`#select_all_${groupId}`);
+        
+        if (checkedCount === 0) {
+            columnHeader.prop('indeterminate', false).prop('checked', false);
+        } else if (checkedCount === totalCount) {
+            columnHeader.prop('indeterminate', false).prop('checked', true);
+        } else {
+            columnHeader.prop('indeterminate', true).prop('checked', false);
         }
-    });
+    }
     
-    // Select all buttons
-    $('#selectAllBtn').click(function() {
-        $('.permission-checkbox').prop('checked', true).trigger('change');
-    });
-    
-    $('#deselectAllBtn').click(function() {
-        $('.permission-checkbox').prop('checked', false).trigger('change');
-    });
-    
-    // Save changes
-    $('#saveChangesBtn').click(function() {
+    // Optimized save function
+    function saveChanges() {
         if (isSaving || pendingChanges.length === 0) return;
         
         isSaving = true;
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Saving...');
+        $('#saveChangesBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Saving...');
         
         const organizationId = $('#organizationSelect').val();
-        const permissions = pendingChanges.map(change => ({
-            model_name: change.model,
-            permission_type: change.permission,
-            value: change.value
-        }));
         
-        $.ajax({
-            url: '{% url "sb_sync:bulk_update_permissions" %}',
-            method: 'POST',
-            data: JSON.stringify({
-                organization_id: organizationId,
-                group_id: null, // Will be set per permission
-                permissions: permissions
-            }),
-            contentType: 'application/json',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            success: function(response) {
-                if (response.success) {
-                    showStatusMessage('success', `Successfully updated ${response.updated_count} permissions`);
+        // Group changes by group_id for efficient processing
+        const changesByGroup = {};
+        pendingChanges.forEach(change => {
+            if (!changesByGroup[change.group]) {
+                changesByGroup[change.group] = [];
+            }
+            changesByGroup[change.group].push({
+                model_name: change.model,
+                permission_type: change.permission,
+                value: change.value,
+                group_id: change.group
+            });
+        });
+        
+        // Process each group's changes
+        const savePromises = Object.values(changesByGroup).map(groupChanges => {
+            return $.ajax({
+                url: '{% url "sb_sync:bulk_update_permissions" %}',
+                method: 'POST',
+                data: JSON.stringify({
+                    organization_id: organizationId,
+                    permissions: groupChanges
+                }),
+                contentType: 'application/json',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+        });
+        
+        // Wait for all saves to complete
+        Promise.all(savePromises)
+            .then(responses => {
+                let totalUpdated = 0;
+                let hasErrors = false;
+                
+                responses.forEach(response => {
+                    if (response.success) {
+                        totalUpdated += response.updated_count || 0;
+                    } else {
+                        hasErrors = true;
+                        showStatusMessage('danger', `Error: ${response.error}`);
+                    }
+                });
+                
+                if (!hasErrors) {
+                    showStatusMessage('success', `Successfully updated ${totalUpdated} permissions`);
                     pendingChanges = [];
                     updateSaveButton();
-                } else {
-                    showStatusMessage('danger', `Error: ${response.error}`);
                 }
-            },
-            error: function(xhr, status, error) {
+            })
+            .catch(error => {
                 showStatusMessage('danger', `Error saving changes: ${error}`);
-            },
-            complete: function() {
+            })
+            .finally(() => {
                 isSaving = false;
                 $('#saveChangesBtn').prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Changes');
-            }
-        });
-    });
+            });
+    }
     
-    // Individual permission updates
-    $('.permission-checkbox').on('change', function() {
-        const model = $(this).data('model');
-        const group = $(this).data('group');
-        const permission = $(this).data('permission');
-        const value = $(this).is(':checked');
-        
-        // Update individual permission via AJAX
-        $.ajax({
-            url: '{% url "sb_sync:update_permission" %}',
-            method: 'POST',
-            data: JSON.stringify({
-                organization_id: $('#organizationSelect').val(),
-                group_id: group,
-                model_name: model,
-                permission_type: permission,
-                value: value
-            }),
-            contentType: 'application/json',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            success: function(response) {
-                if (response.success) {
-                    showStatusMessage('success', response.message);
-                } else {
-                    showStatusMessage('danger', `Error: ${response.error}`);
-                }
-            },
-            error: function(xhr, status, error) {
-                showStatusMessage('danger', `Error updating permission: ${error}`);
-            }
-        });
+    // Manual save button
+    $('#saveChangesBtn').click(function() {
+        saveChanges();
     });
     
     function updateSaveButton() {
@@ -352,6 +363,11 @@ $(document).ready(function() {
         }
         return cookieValue;
     }
+    
+    // Initialize column header states
+    {% for group in groups %}
+        updateColumnHeaderState({{ group.id }});
+    {% endfor %}
     
     // Initialize
     updateSaveButton();

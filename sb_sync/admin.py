@@ -53,12 +53,12 @@ class UserOrganizationAdmin(SimpleHistoryAdmin):
 
 @admin.register(ModelPermission)
 class ModelPermissionAdmin(SimpleHistoryAdmin):
-    list_display = ['organization', 'group', 'model_name', 'can_push', 'can_pull', 'can_create', 'can_update', 'can_delete', 'can_read']
-    list_filter = ['organization', 'group', 'can_push', 'can_pull', 'can_create', 'can_update', 'can_delete', 'can_read']
+    list_display = ['organization', 'group', 'model_name', 'can_push', 'can_pull']
+    list_filter = ['organization', 'group', 'can_push', 'can_pull']
     search_fields = ['organization__name', 'group__name', 'model_name']
-    list_editable = ['can_push', 'can_pull', 'can_create', 'can_update', 'can_delete', 'can_read']
+    list_editable = ['can_push', 'can_pull']
     ordering = ['organization', 'group', 'model_name']
-    history_list_display = ['organization', 'group', 'model_name', 'can_push', 'can_pull', 'can_create', 'can_update', 'can_delete', 'can_read']
+    history_list_display = ['organization', 'group', 'model_name', 'can_push', 'can_pull']
 
 @admin.register(UserSyncMetadata)
 class UserSyncMetadataAdmin(SimpleHistoryAdmin):

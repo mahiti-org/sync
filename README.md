@@ -149,45 +149,6 @@ python manage.py setup_organizations --action add_user --username bob_analyst --
 python manage.py setup_organizations --action setup_example
 ```
 
-### 5. Dynamic Permission Configuration
-
-#### Using Command Line
-
-```bash
-# Discover all models in your project
-python manage.py dynamic_permissions --action discover
-
-# Discover models from specific app
-python manage.py dynamic_permissions --action discover --app-label myapp
-
-# Generate permission configuration
-python manage.py dynamic_permissions --action generate --org-slug acme-corp --permission-template read_write --output-file permissions.json
-
-# Apply permission configuration
-python manage.py dynamic_permissions --action apply --org-slug acme-corp --config-file permissions.json
-
-# Export current permissions
-python manage.py dynamic_permissions --action export --org-slug acme-corp --output-file current_permissions.json
-
-# Validate configuration file
-python manage.py dynamic_permissions --action validate --config-file permissions.json
-
-# Show available templates
-python manage.py dynamic_permissions --action template
-```
-
-#### Using Web Interface (Recommended)
-
-For easier management, use the web-based configuration interface:
-
-1. **Access the permission matrix**: `http://your-domain/api/sync/config/permissions/`
-2. **Select your organization** from the dropdown
-3. **Use checkboxes** to grant/revoke permissions for each model and group
-4. **Changes are saved automatically** via AJAX
-5. **Use bulk operations** (Select All/Deselect All) for efficiency
-
-The web interface provides a visual matrix showing all models vs permissions, making it much easier to manage complex permission scenarios.
-
 ## 👥 User Groups and Permissions
 
 ### Using Django Groups
@@ -208,15 +169,15 @@ The system comes with common groups that can be customized for any domain:
 
 ### Permission Matrix
 
-| Group | User | Group | ContentType | Session | Delete |
-|-------|------|-------|-------------|---------|--------|
-| Administrators | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Yes |
-| Managers | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
-| Users | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
-| Analysts | ❌ Read | ❌ Read | ❌ Read | ❌ Read | ❌ No |
-| Sales | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
-| Support | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ✅ Push/Pull | ❌ No |
-| Read Only | ✅ Pull | ✅ Pull | ✅ Pull | ✅ Pull | ❌ No |
+| Group | Push | Pull |
+|-------|------|------|
+| Administrators | ✅ Yes | ✅ Yes |
+| Managers | ✅ Yes | ✅ Yes |
+| Users | ✅ Yes | ✅ Yes |
+| Analysts | ❌ No | ✅ Yes |
+| Sales | ✅ Yes | ✅ Yes |
+| Support | ✅ Yes | ✅ Yes |
+| Read Only | ❌ No | ✅ Yes |
 
 ## 🌐 Web-Based Configuration Interface
 
@@ -306,8 +267,6 @@ Track all changes to sync system with comprehensive audit trails:
 - **Real-time Updates**: AJAX-powered with immediate feedback
 - **Security**: Staff-only access with CSRF protection
 - **Performance**: Cached data and optimized queries
-
-For detailed documentation on the web interface, see [WEB_CONFIG_README.md](WEB_CONFIG_README.md).
 
 ## 📡 API Endpoints
 
@@ -561,20 +520,16 @@ class UserOrganization(models.Model):
 
 #### ModelPermission
 
-Defines which models each role can access:
+Defines which models each group can access:
 
 ```python
 class ModelPermission(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
-    role = models.CharField(max_length=50, db_index=True)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True, help_text="Django auth group")
     model_name = models.CharField(max_length=100, db_index=True)
     can_push = models.BooleanField(default=False)
     can_pull = models.BooleanField(default=False)
-    can_create = models.BooleanField(default=False)
-    can_update = models.BooleanField(default=False)
-    can_delete = models.BooleanField(default=False)
-    can_read = models.BooleanField(default=True)
-    filters = models.JSONField(blank=True, null=True)
+    filters = models.JSONField(blank=True, null=True)  # Custom filters for data access
 ```
 
 #### UserSyncMetadata
@@ -855,33 +810,6 @@ python manage.py setup_audit_trails --action setup --model sb_sync.Organization
 python manage.py setup_audit_trails --action check --model sb_sync.ModelPermission
 ```
 
-### Web-Based Configuration Interface
-
-For easier management, use the web interface instead of command-line tools:
-
-```bash
-# Access the web interface
-http://your-domain/api/sync/config/
-```
-
-**Available Web Interfaces:**
-
-- **Dashboard**: `/api/sync/config/` - Overview and quick actions
-- **Permission Matrix**: `/api/sync/config/permissions/` - Visual permission management
-- **Model Discovery**: `/api/sync/config/model-discovery/` - Configure model discovery
-- **Sync Logs**: `/api/sync/config/logs/` - View operation history
-- **Performance Metrics**: `/api/sync/config/metrics/` - Monitor performance
-- **Audit Trails**: `/api/sync/config/audit-trails/` - Track all changes
-
-**Benefits of Web Interface:**
-- ✅ **Visual Management**: Checkbox-based permissions instead of JSON files
-- ✅ **Real-time Updates**: Changes saved immediately via AJAX
-- ✅ **Bulk Operations**: Select all/deselect all functionality
-- ✅ **Live Monitoring**: Auto-refreshing logs and metrics
-- ✅ **Export Capabilities**: Download data as CSV
-- ✅ **No Configuration Files**: Everything managed through web interface
-- ✅ **Audit Trails**: Complete change history tracking
-
 ### Dynamic Permission Configuration
 
 ```bash
@@ -902,30 +830,6 @@ python manage.py dynamic_permissions --action validate --config-file permissions
 
 # Show available templates
 python manage.py dynamic_permissions --action template
-```
-
-
-
-### Model Discovery and Default Models
-
-```bash
-# Show model discovery summary
-python manage.py show_models --action summary
-
-# Show all discovered models
-python manage.py show_models --action all
-
-# Show enabled models only
-python manage.py show_models --action enabled
-
-# Show default models for push/pull
-python manage.py show_models --action default
-
-# Show detailed model information
-python manage.py show_models --action details --verbose
-
-# Show models from specific app
-python manage.py show_models --action enabled --app-label myapp
 ```
 
 ## 🧪 Testing
@@ -1057,7 +961,18 @@ For issues and questions:
 
 ## 📋 Changelog
 
-### **v1.8.0** (Latest) - 2025-08-06
+### **v1.9.0** (Latest) - 2025-08-06
+**🔧 Simplified Permission System**
+- **Removed**: Delete, read, create, and update permissions from the system
+- **Simplified**: Permission system now only includes push and pull permissions
+- **Updated**: ModelPermission model to only have can_push and can_pull fields
+- **Updated**: Permission matrix interface to show only push/pull permissions
+- **Updated**: Admin interface to reflect simplified permission structure
+- **Updated**: All views and templates to work with simplified permissions
+- **Added**: Database migration to remove old permission fields
+- **Improved**: Cleaner and more focused permission management
+
+### **v1.8.0** - 2025-08-06
 **🔧 Template Tag Fix & Version Display**
 - **Fixed**: Template tag loading error for get_version in base.html
 - **Added**: {% load sb_sync_extras %} to properly load custom template tags

@@ -166,10 +166,6 @@ class ModelPermission(models.Model):
     model_name = models.CharField(max_length=100, db_index=True)
     can_push = models.BooleanField(default=False)
     can_pull = models.BooleanField(default=False)
-    can_create = models.BooleanField(default=False)
-    can_update = models.BooleanField(default=False)
-    can_delete = models.BooleanField(default=False)
-    can_read = models.BooleanField(default=True)
     filters = models.JSONField(blank=True, null=True)  # Custom filters for data access
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -185,10 +181,10 @@ class ModelPermission(models.Model):
         unique_together = ['organization', 'group', 'model_name']
         indexes = [
             models.Index(fields=['organization', 'group']),
-            models.Index(fields=['model_name', 'can_push']),
-            models.Index(fields=['model_name', 'can_pull']),
+            models.Index(fields=['model_name', 'organization']),
+            models.Index(fields=['can_push', 'can_pull']),
         ]
-    
+
     def __str__(self):
         return f"{self.organization.name} - {self.group.name} - {self.model_name}"
 

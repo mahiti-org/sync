@@ -514,7 +514,7 @@ def config_dashboard(request):
 
 @staff_member_required
 def permission_matrix(request, organization_id=None):
-    """Permission matrix view for managing model permissions"""
+    """Permission matrix view for managing model permissions - Optimized version"""
     if organization_id:
         organization = Organization.objects.get(id=organization_id)
     else:
@@ -523,36 +523,38 @@ def permission_matrix(request, organization_id=None):
         if not organization:
             return redirect('sb_sync:config_dashboard')
     
-    groups = Group.objects.all()
+    # Optimize queries with select_related and prefetch_related
+    groups = Group.objects.prefetch_related('user_set').all()
     models = get_all_models()
     
-    # Get existing permissions for this organization
+    # Get existing permissions for this organization with optimized query
     existing_permissions = {}
-    permissions = ModelPermission.objects.filter(organization=organization)
+    permissions = ModelPermission.objects.filter(
+        organization=organization
+    ).select_related('group').only(
+        'group__id', 'model_name', 'can_push', 'can_pull'
+    )
+    
+    # Build permissions dictionary efficiently
     for perm in permissions:
         key = f"{perm.group.id}_{perm.model_name}"
         existing_permissions[key] = {
             'can_push': perm.can_push,
             'can_pull': perm.can_pull,
-            'can_create': perm.can_create,
-            'can_update': perm.can_update,
-            'can_delete': perm.can_delete,
-            'can_read': perm.can_read,
         }
+    
+    # Optimize organizations query
+    organizations = Organization.objects.filter(is_active=True).only('id', 'name', 'slug')
     
     context = {
         'organization': organization,
-        'organizations': Organization.objects.filter(is_active=True),
+        'organizations': organizations,
         'groups': groups,
         'models': models,
         'existing_permissions': existing_permissions,
         'permission_types': [
             ('can_push', 'Push'),
             ('can_pull', 'Pull'),
-            ('can_create', 'Create'),
-            ('can_update', 'Update'),
-            ('can_delete', 'Delete'),
-            ('can_read', 'Read'),
         ]
     }
     
@@ -563,7 +565,7 @@ def permission_matrix(request, organization_id=None):
 @require_http_methods(["POST"])
 @staff_member_required
 def update_permission(request):
-    """Update a single permission via AJAX"""
+    """Update a single permission via AJAX - Optimized version"""
     try:
         data = json.loads(request.body)
         organization_id = data.get('organization_id')
@@ -575,27 +577,20 @@ def update_permission(request):
         if not all([organization_id, group_id, model_name, permission_type]):
             return JsonResponse({'success': False, 'error': 'Missing required parameters'})
         
-        organization = Organization.objects.get(id=organization_id)
-        group = Group.objects.get(id=group_id)
-        
-        # Get or create permission
+        # Use bulk operations for better performance
         permission, created = ModelPermission.objects.get_or_create(
-            organization=organization,
-            group=group,
+            organization_id=organization_id,  # Use ID directly to avoid extra query
+            group_id=group_id,  # Use ID directly to avoid extra query
             model_name=model_name,
             defaults={
                 'can_push': False,
                 'can_pull': False,
-                'can_create': False,
-                'can_update': False,
-                'can_delete': False,
-                'can_read': True,  # Default to read access
             }
         )
         
         # Update the specific permission
         setattr(permission, permission_type, value)
-        permission.save()
+        permission.save(update_fields=[permission_type])  # Only update the changed field
         
         # Invalidate cache
         cache_key = f"model_permission_{organization_id}_{group_id}_{model_name}"
@@ -621,45 +616,91 @@ def update_permission(request):
 @require_http_methods(["POST"])
 @staff_member_required
 def bulk_update_permissions(request):
-    """Bulk update permissions"""
+    """Bulk update permissions - Optimized version"""
     try:
         data = json.loads(request.body)
         organization_id = data.get('organization_id')
-        group_id = data.get('group_id')
         permissions = data.get('permissions', [])
         
-        if not organization_id or not group_id:
-            return JsonResponse({'success': False, 'error': 'Missing organization or group'})
+        if not organization_id or not permissions:
+            return JsonResponse({'success': False, 'error': 'Missing organization or permissions'})
         
-        organization = Organization.objects.get(id=organization_id)
-        group = Group.objects.get(id=group_id)
+        # Group permissions by group_id for efficient processing
+        permissions_by_group = {}
+        for perm_data in permissions:
+            group_id = perm_data.get('group_id')
+            if not group_id:
+                continue
+                
+            if group_id not in permissions_by_group:
+                permissions_by_group[group_id] = []
+            permissions_by_group[group_id].append(perm_data)
         
         updated_count = 0
-        for perm_data in permissions:
-            model_name = perm_data.get('model_name')
-            permission_type = perm_data.get('permission_type')
-            value = perm_data.get('value')
+        cache_keys_to_delete = []
+        
+        # Process each group's permissions efficiently
+        for group_id, group_permissions in permissions_by_group.items():
+            # Get all existing permissions for this group in one query
+            existing_permissions = {
+                f"{p.model_name}_{p.organization_id}": p 
+                for p in ModelPermission.objects.filter(
+                    organization_id=organization_id,
+                    group_id=group_id,
+                    model_name__in=[p.get('model_name') for p in group_permissions]
+                )
+            }
             
-            if not all([model_name, permission_type]):
-                continue
+            # Prepare bulk create and update operations
+            to_create = []
+            to_update = []
             
-            permission, created = ModelPermission.objects.get_or_create(
-                organization=organization,
-                group=group,
-                model_name=model_name,
-                defaults={
-                    'can_push': False,
-                    'can_pull': False,
-                    'can_create': False,
-                    'can_update': False,
-                    'can_delete': False,
-                    'can_read': True,
-                }
-            )
+            for perm_data in group_permissions:
+                model_name = perm_data.get('model_name')
+                permission_type = perm_data.get('permission_type')
+                value = perm_data.get('value')
+                
+                if not all([model_name, permission_type]):
+                    continue
+                
+                permission_key = f"{model_name}_{organization_id}"
+                
+                if permission_key in existing_permissions:
+                    # Update existing permission
+                    permission = existing_permissions[permission_key]
+                    setattr(permission, permission_type, value)
+                    to_update.append(permission)
+                else:
+                    # Create new permission
+                    defaults = {
+                        'can_push': False,
+                        'can_pull': False,
+                    }
+                    defaults[permission_type] = value
+                    
+                    to_create.append(ModelPermission(
+                        organization_id=organization_id,
+                        group_id=group_id,
+                        model_name=model_name,
+                        **defaults
+                    ))
+                
+                updated_count += 1
+                cache_keys_to_delete.append(f"model_permission_{organization_id}_{group_id}_{model_name}")
             
-            setattr(permission, permission_type, value)
-            permission.save()
-            updated_count += 1
+            # Bulk create new permissions
+            if to_create:
+                ModelPermission.objects.bulk_create(to_create, batch_size=100)
+            
+            # Bulk update existing permissions
+            if to_update:
+                ModelPermission.objects.bulk_update(to_update, fields=[
+                    'can_push', 'can_pull'
+                ], batch_size=100)
+        
+        # Bulk cache invalidation
+        for cache_key in cache_keys_to_delete:
+            cache.delete(cache_key)
         
         return JsonResponse({
             'success': True,
