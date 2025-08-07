@@ -961,7 +961,17 @@ For issues and questions:
 
 ## 📋 Changelog
 
-### **v1.9.1** (Latest) - 2025-08-06
+### **v1.9.2** (Latest) - 2025-08-06
+**🔧 Permission System Fixes**
+- **Fixed**: Pull API permission issues causing "you don't have permission" errors
+- **Fixed**: Removed invalid `is_active` filter from ModelPermission queries
+- **Added**: Proper superuser handling in permission system
+- **Enhanced**: Group resolution for admin users and superusers
+- **Added**: Comprehensive debugging logs for permission troubleshooting
+- **Improved**: Error handling and logging for permission checks
+- **Fixed**: Admin users with proper group assignments now have correct pull/push permissions
+
+### **v1.9.1** - 2025-08-06
 **🎨 Improved Permission Matrix UI**
 - **Enhanced**: Split push and pull permissions into separate columns
 - **Added**: Individual "select all" checkboxes for push and pull permissions per group
