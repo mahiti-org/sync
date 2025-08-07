@@ -961,7 +961,17 @@ For issues and questions:
 
 ## 📋 Changelog
 
-### **v1.9.0** (Latest) - 2025-08-06
+### **v1.9.1** (Latest) - 2025-08-06
+**🎨 Improved Permission Matrix UI**
+- **Enhanced**: Split push and pull permissions into separate columns
+- **Added**: Individual "select all" checkboxes for push and pull permissions per group
+- **Improved**: Better visual organization with dedicated columns for each permission type
+- **Enhanced**: More intuitive interface for permission management
+- **Updated**: JavaScript logic to handle separate column states independently
+- **Improved**: User experience with clearer permission type separation
+- **Maintained**: All existing functionality (auto-save, debouncing, bulk operations)
+
+### **v1.9.0** - 2025-08-06
 **🔧 Simplified Permission System**
 - **Removed**: Delete, read, create, and update permissions from the system
 - **Simplified**: Permission system now only includes push and pull permissions
