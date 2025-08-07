@@ -201,6 +201,28 @@
 
 <!-- Status Messages -->
 <div id="statusMessages"></div>
+
+<!-- Save Feedback Modal -->
+<div class="modal fade" id="saveFeedbackModal" tabindex="-1" aria-labelledby="saveFeedbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="saveFeedbackModalLabel">
+                    <i class="fas fa-save me-2"></i>Save Results
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="saveFeedbackContent">
+                    <!-- Content will be dynamically populated -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -290,6 +312,7 @@ $(document).ready(function() {
         $('#saveChangesBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Saving...');
         
         const organizationId = $('#organizationSelect').val();
+        const totalChanges = pendingChanges.length;
         
         // Group changes by group_id for efficient processing
         const changesByGroup = {};
@@ -326,29 +349,119 @@ $(document).ready(function() {
             .then(responses => {
                 let totalUpdated = 0;
                 let hasErrors = false;
+                let errorMessages = [];
+                let successDetails = [];
                 
-                responses.forEach(response => {
+                responses.forEach((response, index) => {
                     if (response.success) {
-                        totalUpdated += response.updated_count || 0;
+                        const updatedCount = response.updated_count || 0;
+                        totalUpdated += updatedCount;
+                        successDetails.push(`Group ${index + 1}: ${updatedCount} permissions updated`);
                     } else {
                         hasErrors = true;
-                        showStatusMessage('danger', `Error: ${response.error}`);
+                        const errorMsg = response.error || 'Unknown error';
+                        errorMessages.push(`Group ${index + 1}: ${errorMsg}`);
+                        showStatusMessage('danger', `Error: ${errorMsg}`);
                     }
                 });
                 
+                // Show detailed feedback modal
+                showSaveFeedbackModal({
+                    totalChanges: totalChanges,
+                    totalUpdated: totalUpdated,
+                    hasErrors: hasErrors,
+                    successDetails: successDetails,
+                    errorMessages: errorMessages
+                });
+                
                 if (!hasErrors) {
-                    showStatusMessage('success', `Successfully updated ${totalUpdated} permissions`);
                     pendingChanges = [];
                     updateSaveButton();
                 }
             })
             .catch(error => {
                 showStatusMessage('danger', `Error saving changes: ${error}`);
+                showSaveFeedbackModal({
+                    totalChanges: totalChanges,
+                    totalUpdated: 0,
+                    hasErrors: true,
+                    successDetails: [],
+                    errorMessages: [`Network error: ${error}`]
+                });
             })
             .finally(() => {
                 isSaving = false;
                 $('#saveChangesBtn').prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Changes');
             });
+    }
+    
+    // Function to show save feedback modal
+    function showSaveFeedbackModal(data) {
+        const modal = $('#saveFeedbackModal');
+        const content = $('#saveFeedbackContent');
+        
+        let modalContent = '';
+        
+        if (data.hasErrors) {
+            modalContent = `
+                <div class="text-center mb-3">
+                    <i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="text-center mb-3">Save Operation Completed with Issues</h6>
+                <div class="alert alert-warning">
+                    <strong>Summary:</strong><br>
+                    • Attempted to save: ${data.totalChanges} changes<br>
+                    • Successfully updated: ${data.totalUpdated} permissions<br>
+                    • Errors encountered: ${data.errorMessages.length}
+                </div>
+            `;
+            
+            if (data.errorMessages.length > 0) {
+                modalContent += `
+                    <div class="mt-3">
+                        <strong>Error Details:</strong>
+                        <ul class="list-unstyled mt-2">
+                            ${data.errorMessages.map(msg => `<li class="text-danger"><i class="fas fa-times me-1"></i>${msg}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+        } else {
+            modalContent = `
+                <div class="text-center mb-3">
+                    <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                </div>
+                <h6 class="text-center mb-3">Save Operation Successful!</h6>
+                <div class="alert alert-success">
+                    <strong>Summary:</strong><br>
+                    • Total changes processed: ${data.totalChanges}<br>
+                    • Successfully updated: ${data.totalUpdated} permissions<br>
+                    • Success rate: 100%
+                </div>
+            `;
+            
+            if (data.successDetails.length > 0) {
+                modalContent += `
+                    <div class="mt-3">
+                        <strong>Update Details:</strong>
+                        <ul class="list-unstyled mt-2">
+                            ${data.successDetails.map(detail => `<li class="text-success"><i class="fas fa-check me-1"></i>${detail}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+        
+        content.html(modalContent);
+        
+        // Show the modal
+        const bootstrapModal = new bootstrap.Modal(modal);
+        bootstrapModal.show();
+        
+        // Auto-hide after 8 seconds for success, 12 seconds for errors
+        setTimeout(() => {
+            bootstrapModal.hide();
+        }, data.hasErrors ? 12000 : 8000);
     }
     
     // Manual save button
