@@ -333,7 +333,7 @@ class Command(BaseCommand):
                     continue
                 
                 # Check required permission fields
-                required_fields = ['can_push', 'can_pull', 'can_create', 'can_update', 'can_delete', 'can_read']
+                required_fields = ['can_push', 'can_pull']
                 for field in required_fields:
                     if field not in permissions:
                         errors.append(f'Missing "{field}" in {group_name}.{model_name}')

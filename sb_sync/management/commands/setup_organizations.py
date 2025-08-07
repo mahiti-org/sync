@@ -272,34 +272,18 @@ class Command(BaseCommand):
             'full_access': {
                 'can_push': True,
                 'can_pull': True,
-                'can_create': True,
-                'can_update': True,
-                'can_delete': True,
-                'can_read': True
             },
             'read_write': {
                 'can_push': True,
                 'can_pull': True,
-                'can_create': True,
-                'can_update': True,
-                'can_delete': False,
-                'can_read': True
             },
             'read_only': {
                 'can_push': False,
                 'can_pull': True,
-                'can_create': False,
-                'can_update': False,
-                'can_delete': False,
-                'can_read': True
             },
             'custom': {
                 'can_push': True,
                 'can_pull': True,
-                'can_create': False,
-                'can_update': True,
-                'can_delete': False,
-                'can_read': True
             }
         }
         return templates.get(template_name, templates['read_write'])
@@ -422,58 +406,30 @@ class Command(BaseCommand):
                 'Administrators': {
                     'can_push': True,
                     'can_pull': True,
-                    'can_create': True,
-                    'can_update': True,
-                    'can_delete': True,
-                    'can_read': True
                 },
                 'Managers': {
                     'can_push': True,
                     'can_pull': True,
-                    'can_create': True,
-                    'can_update': True,
-                    'can_delete': False,
-                    'can_read': True
                 },
                 'Users': {
                     'can_push': True,
                     'can_pull': True,
-                    'can_create': True,
-                    'can_update': True,
-                    'can_delete': False,
-                    'can_read': True
                 },
                 'Analysts': {
                     'can_push': False,
                     'can_pull': True,
-                    'can_create': False,
-                    'can_update': False,
-                    'can_delete': False,
-                    'can_read': True
                 },
                 'Sales': {
                     'can_push': True,
                     'can_pull': True,
-                    'can_create': True,
-                    'can_update': True,
-                    'can_delete': False,
-                    'can_read': True
                 },
                 'Support': {
                     'can_push': True,
                     'can_pull': True,
-                    'can_create': True,
-                    'can_update': True,
-                    'can_delete': False,
-                    'can_read': True
                 },
                 'Read Only': {
                     'can_push': False,
                     'can_pull': True,
-                    'can_create': False,
-                    'can_update': False,
-                    'can_delete': False,
-                    'can_read': True
                 }
             }
             

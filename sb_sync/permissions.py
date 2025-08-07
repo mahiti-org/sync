@@ -88,14 +88,9 @@ class SyncPermission:
                             has_permission = permission.can_push
                         elif operation == 'pull':
                             has_permission = permission.can_pull
-                        elif operation == 'create':
-                            has_permission = permission.can_create
-                        elif operation == 'update':
-                            has_permission = permission.can_update
-                        elif operation == 'delete':
-                            has_permission = permission.can_delete
-                        else:  # read
-                            has_permission = permission.can_read
+                        else:
+                            # Default to pull for any other operation
+                            has_permission = permission.can_pull
                         
                         if has_permission:
                             break

@@ -93,42 +93,22 @@ class ModelIntrospector:
             'full_access': {
                 'can_push': True,
                 'can_pull': True,
-                'can_create': True,
-                'can_update': True,
-                'can_delete': True,
-                'can_read': True
             },
             'read_write': {
                 'can_push': True,
                 'can_pull': True,
-                'can_create': True,
-                'can_update': True,
-                'can_delete': False,
-                'can_read': True
             },
             'read_only': {
                 'can_push': False,
                 'can_pull': True,
-                'can_create': False,
-                'can_update': False,
-                'can_delete': False,
-                'can_read': True
             },
             'write_only': {
                 'can_push': True,
                 'can_pull': False,
-                'can_create': True,
-                'can_update': True,
-                'can_delete': False,
-                'can_read': False
             },
             'custom': {
                 'can_push': False,
                 'can_pull': False,
-                'can_create': False,
-                'can_update': False,
-                'can_delete': False,
-                'can_read': False
             }
         }
 
@@ -178,10 +158,6 @@ class DynamicPermissionConfigurator:
                         model_name=model_name,
                         can_push=permissions.get('can_push', False),
                         can_pull=permissions.get('can_pull', False),
-                        can_create=permissions.get('can_create', False),
-                        can_update=permissions.get('can_update', False),
-                        can_delete=permissions.get('can_delete', False),
-                        can_read=permissions.get('can_read', False)
                     )
                     permissions_to_create.append(permission)
             
@@ -209,10 +185,6 @@ class DynamicPermissionConfigurator:
             config[group_name][permission.model_name] = {
                 'can_push': permission.can_push,
                 'can_pull': permission.can_pull,
-                'can_create': permission.can_create,
-                'can_update': permission.can_update,
-                'can_delete': permission.can_delete,
-                'can_read': permission.can_read
             }
         
         return config
