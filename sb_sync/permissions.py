@@ -1,15 +1,17 @@
 """
 Multi-tenant and Group-based Access Control for sb-sync
 """
+import json
 import logging
 from django.contrib.auth.models import Group
 from django.contrib.sites.models import Site
 from django.core.cache import cache
-from django.apps import apps
-from django.db.models import Q
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from django.db import transaction
+from django.contrib.auth.decorators import login_required
+from rest_framework.permissions import BasePermission
+from rest_framework import exceptions
 from .models import UserSite, ModelPermission, UserSyncMetadata, DataFilter
+from .authentication import JWTAuthentication
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -240,22 +242,7 @@ class SiteContextMiddleware:
             return self.get_response(request)
         
         try:
-            # Perform JWT authentication directly in middleware
-            jwt_auth = JWTAuthentication()
-            try:
-                user_auth_tuple = jwt_auth.authenticate(request)
-                if user_auth_tuple is not None:
-                    request.user, request.auth = user_auth_tuple
-                else:
-                    # Fall back to session authentication
-                    if not request.user.is_authenticated:
-                        return self.get_response(request)
-            except (InvalidToken, TokenError):
-                # JWT token invalid, fall back to session auth
-                if not request.user.is_authenticated:
-                    return self.get_response(request)
-            
-            # Get user's primary site (you can modify this logic)
+            # Get user's sites directly
             user_site = UserSite.objects.filter(
                 user=request.user,
                 is_active=True
@@ -264,7 +251,6 @@ class SiteContextMiddleware:
             if user_site:
                 request.site = user_site.site
                 request.user_group = user_site.group
-                logger.debug(f"Set site '{user_site.site.name}' for user: {request.user.username}")
             else:
                 request.site = None
                 logger.warning(f"No site found for user: {request.user.username}")

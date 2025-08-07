@@ -34,13 +34,19 @@ class PushAPIView(APIView):
 
     def post(self, request):
         try:
-            # Get user's site context
-            site = getattr(request, 'site', None)
-            if not site:
+            # Get user's site context after authentication
+            user_site = UserSite.objects.filter(
+                user=request.user,
+                is_active=True
+            ).select_related('site', 'group').first()
+            
+            if not user_site:
                 return JsonResponse({
                     'success': False,
                     'error': 'User is not associated with any site',
                 }, status=400)
+            
+            site = user_site.site
             
             # Log incoming request
             logger.info(f"PUSH request from user {request.user.username} in {site.name}: {json.dumps(request.data)}")
@@ -135,28 +141,29 @@ class PullAPIView(APIView):
 
     def post(self, request):
         try:
-            # Get user's site context
-            site = getattr(request, 'site', None)
-            if not site:
+            # Get user's site context after authentication
+            user_site = UserSite.objects.filter(
+                user=request.user,
+                is_active=True
+            ).select_related('site', 'group').first()
+            
+            if not user_site:
                 return JsonResponse({
                     'success': False,
                     'error': 'User is not associated with any site',
                 }, status=400)
             
+            site = user_site.site
+            
             # Validate request data
             validated_data = self._validate_pull_request(request.data)
-            if not validated_data['success']:
-                return JsonResponse(validated_data, status=400)
             
-            # Process the pull request
+            # Process the request with permissions
             result = self._process_pull_request_with_permissions(
-                validated_data['data'], 
+                validated_data, 
                 request.user, 
                 site
             )
-            
-            # Log completion
-            logger.info(f"PULL request completed for user {request.user.username} in {site.name}: {result['batch_info']['total_records']} records")
             
             return JsonResponse(result)
             
