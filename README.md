@@ -102,6 +102,140 @@ CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 SB_SYNC_LOG_DIR = 'logs'
 ```
 
+### Model Discovery Configuration
+
+The package automatically discovers Django models for synchronization with advanced filtering options.
+
+#### Basic Configuration
+
+```python
+from sb_sync.config import SyncConfig
+
+# Include specific apps
+SyncConfig.set_config('MODEL_DISCOVERY', 'INCLUDE_APPS', ['myapp', 'ecommerce'])
+
+# Exclude specific models
+SyncConfig.set_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS', ['myapp.LogModel', 'ecommerce.CacheModel'])
+
+# Enable/disable auto discovery
+SyncConfig.set_config('MODEL_DISCOVERY', 'AUTO_DISCOVER_MODELS', True)
+```
+
+#### Advanced Configuration Options
+
+##### Model Type Filtering
+```python
+# Exclude abstract and proxy models
+SyncConfig.set_config('MODEL_DISCOVERY', 'EXCLUDE_ABSTRACT_MODELS', True)
+SyncConfig.set_config('MODEL_DISCOVERY', 'EXCLUDE_PROXY_MODELS', True)
+
+# Include only concrete models
+SyncConfig.set_config('MODEL_DISCOVERY', 'INCLUDE_MODEL_TYPES', ['concrete'])
+```
+
+##### Pattern-Based Filtering
+```python
+# Include models matching patterns
+SyncConfig.set_config('MODEL_DISCOVERY', 'INCLUDE_MODEL_PATTERNS', [
+    r'^myapp\.',  # All models from myapp
+    r'^ecommerce\.Product.*$'  # Product models from ecommerce
+])
+
+# Exclude models matching patterns
+SyncConfig.set_config('MODEL_DISCOVERY', 'EXCLUDE_MODEL_PATTERNS', [
+    r'^.*\.Historical.*$',  # Exclude historical models
+    r'^.*\.Log$',           # Exclude log models
+    r'^.*\.Cache$',         # Exclude cache models
+])
+```
+
+##### Field-Based Filtering
+```python
+# Exclude models with specific fields
+SyncConfig.set_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS_WITH_FIELDS', [
+    'created_at',  # Exclude models with created_at field
+    'updated_at',  # Exclude models with updated_at field
+    'deleted_at',  # Exclude soft-delete models
+])
+
+# Require models to have specific fields
+SyncConfig.set_config('MODEL_DISCOVERY', 'REQUIRE_MODELS_WITH_FIELDS', [
+    'id'  # Only include models with 'id' field
+])
+```
+
+##### App-Specific Exclusions
+```python
+# Exclude specific models from specific apps
+SyncConfig.set_config('MODEL_DISCOVERY', 'APP_SPECIFIC_EXCLUSIONS', {
+    'auth': ['Group', 'Permission'],  # Exclude Group and Permission from auth
+    'admin': ['LogEntry'],            # Exclude LogEntry from admin
+})
+```
+
+##### Performance and Caching
+```python
+# Enable discovery caching
+SyncConfig.set_config('MODEL_DISCOVERY', 'ENABLE_DISCOVERY_CACHING', True)
+SyncConfig.set_config('MODEL_DISCOVERY', 'DISCOVERY_CACHE_TIMEOUT', 3600)  # 1 hour
+
+# Limit models per app
+SyncConfig.set_config('MODEL_DISCOVERY', 'MAX_MODELS_PER_APP', 100)
+```
+
+#### Management Command
+
+Use the management command to configure model discovery:
+
+```bash
+# List current configuration
+python manage.py configure_model_discovery --list-current
+
+# Set include apps
+python manage.py configure_model_discovery --set-include-apps myapp ecommerce
+
+# Set exclude patterns
+python manage.py configure_model_discovery --set-exclude-patterns ".*Log" ".*Cache"
+
+# Set field-based exclusions
+python manage.py configure_model_discovery --set-exclude-fields created_at updated_at
+
+# Test discovery with current settings
+python manage.py configure_model_discovery --test-discovery
+
+# Reset to defaults
+python manage.py configure_model_discovery --reset-to-defaults
+```
+
+#### Model Discovery Settings
+
+##### Basic Settings
+- `AUTO_DISCOVER_MODELS`: Enable/disable automatic model discovery
+- `INCLUDE_APPS`: List of apps whose models will be synced (empty = all apps)
+- `EXCLUDE_MODELS`: List of specific models to exclude from sync
+- `INCLUDE_CUSTOM_MODELS`: Include custom models in discovery
+- `MODEL_PREFIX`: Prefix for model names
+- `MODEL_SUFFIX`: Suffix for model names
+- `MODEL_NAMESPACE`: Namespace for model names
+
+##### Advanced Settings
+- `EXCLUDE_ABSTRACT_MODELS`: Exclude abstract models
+- `EXCLUDE_PROXY_MODELS`: Exclude proxy models
+- `EXCLUDE_HISTORICAL_MODELS`: Exclude historical models (simple_history)
+- `EXCLUDE_MANAGER_MODELS`: Exclude models with custom managers
+- `INCLUDE_MODEL_PATTERNS`: Regex patterns for models to include
+- `EXCLUDE_MODEL_PATTERNS`: Regex patterns for models to exclude
+- `EXCLUDE_MODELS_WITH_FIELDS`: Field names that will exclude models
+- `REQUIRE_MODELS_WITH_FIELDS`: Field names that models must have
+- `APP_SPECIFIC_EXCLUSIONS`: Per-app exclusion rules
+- `INCLUDE_MODEL_TYPES`: Types of models to include ('concrete', 'abstract', 'proxy')
+- `ENABLE_DISCOVERY_CACHING`: Enable discovery result caching
+- `DISCOVERY_CACHE_TIMEOUT`: Cache timeout in seconds
+- `MAX_MODELS_PER_APP`: Maximum models per app
+- `VALIDATE_MODEL_ACCESS`: Validate that models can be accessed
+- `CHECK_MODEL_PERMISSIONS`: Check if current user can access models
+- `SAFE_DISCOVERY_MODE`: Only discover models that are safe to sync
+
 ### URL Configuration
 
 Include the sync URLs in your main `urls.py`:
@@ -959,9 +1093,36 @@ For issues and questions:
 - Monitor Celery task logs for background operations
 - Check performance metrics: `/api/sync/performance/`
 
-## 📋 Changelog
+## �� Changelog
 
-### **v1.9.2** (Latest) - 2025-08-06
+### **v2.0.0** (Latest) - 2025-08-07
+**🚀 Major Release: Django Sites Integration & UI Improvements**
+- **🔄 Architecture Change**: Replaced custom Organization model with Django's built-in Sites framework
+- **🎨 UI Enhancement**: Updated all interfaces to use user-friendly "Organization" terminology
+- **🔧 Technical Improvements**: 
+  - Renamed `UserOrganization` to `UserSite` for better Django Sites integration
+  - Updated all models to use `site` instead of `organization` fields
+  - Simplified permission system with push/pull permissions only
+  - Enhanced admin interface with proper field mappings
+  - Fixed all indentation and configuration errors
+- **📱 User Experience**: 
+  - "Organization Selector" instead of "Site Selector" in permission matrix
+  - "Organizations Overview" in configuration dashboard
+  - Professional admin interface with organization actions
+  - Consistent terminology across all interfaces
+- **⚡ Performance**: 
+  - Optimized database queries with proper select_related
+  - Enhanced caching mechanisms
+  - Improved bulk operations for permissions
+- **🔒 Security**: 
+  - Maintained all security features with Django Sites
+  - Enhanced permission checking with proper site isolation
+- **📊 Monitoring**: 
+  - Added comprehensive audit trails
+  - Enhanced logging and error handling
+  - Improved performance metrics tracking
+
+### **v1.9.2** - 2025-08-06
 **🔧 Permission System Fixes**
 - **Fixed**: Pull API permission issues causing "you don't have permission" errors
 - **Fixed**: Removed invalid `is_active` filter from ModelPermission queries

@@ -96,8 +96,7 @@ class SyncConfig:
             'sb_sync.SyncLog',
             'sb_sync.SyncMetadata',
             'sb_sync.PerformanceMetrics',
-            'sb_sync.Organization',
-            'sb_sync.UserOrganization',
+            'sb_sync.UserSite',
             'sb_sync.ModelPermission',
             'sb_sync.UserSyncMetadata',
             'sb_sync.DataFilter',
@@ -106,6 +105,72 @@ class SyncConfig:
         'MODEL_PREFIX': '',
         'MODEL_SUFFIX': '',
         'MODEL_NAMESPACE': '',
+        
+        # New advanced configuration options
+        'EXCLUDE_ABSTRACT_MODELS': True,  # Exclude abstract models
+        'EXCLUDE_PROXY_MODELS': True,     # Exclude proxy models
+        'EXCLUDE_HISTORICAL_MODELS': True, # Exclude historical models (simple_history)
+        'EXCLUDE_MANAGER_MODELS': True,   # Exclude models with custom managers that shouldn't be synced
+        
+        # Pattern-based filtering
+        'INCLUDE_MODEL_PATTERNS': [
+            # Regex patterns for models to include
+            # Example: [r'^myapp\.', r'^ecommerce\.']
+        ],
+        'EXCLUDE_MODEL_PATTERNS': [
+            # Regex patterns for models to exclude
+            r'^.*\.Historical.*$',  # Exclude all historical models
+            r'^.*\.Log$',           # Exclude log models
+            r'^.*\.Cache$',         # Exclude cache models
+            r'^.*\.Session$',       # Exclude session models
+            r'^.*\.Permission$',    # Exclude permission models
+        ],
+        
+        # Field-based filtering
+        'EXCLUDE_MODELS_WITH_FIELDS': [
+            # Exclude models that have specific fields
+            'created_at',  # Exclude models with created_at field (usually system models)
+            'updated_at',  # Exclude models with updated_at field
+            'deleted_at',  # Exclude soft-delete models
+        ],
+        'REQUIRE_MODELS_WITH_FIELDS': [
+            # Only include models that have specific fields
+            # Example: ['id'] - only models with 'id' field
+        ],
+        
+        # App-specific configuration
+        'APP_SPECIFIC_EXCLUSIONS': {
+            # Per-app exclusion rules
+            'auth': ['Group', 'Permission'],  # Exclude specific models from auth app
+            'admin': ['LogEntry'],            # Exclude admin log entries
+        },
+        
+        # Model type filtering
+        'INCLUDE_MODEL_TYPES': [
+            # Types of models to include: 'concrete', 'abstract', 'proxy'
+            'concrete'
+        ],
+        
+        # Performance and monitoring
+        'ENABLE_DISCOVERY_CACHING': True,
+        'DISCOVERY_CACHE_TIMEOUT': 3600,  # Cache discovery results for 1 hour
+        'MAX_MODELS_PER_APP': 100,        # Limit models per app to prevent overload
+        
+        # Validation and safety
+        'VALIDATE_MODEL_ACCESS': True,     # Validate that models can be accessed
+        'CHECK_MODEL_PERMISSIONS': True,   # Check if current user can access models
+        'SAFE_DISCOVERY_MODE': True,      # Only discover models that are safe to sync
+        
+        # Custom discovery hooks
+        'CUSTOM_DISCOVERY_FUNCTIONS': [
+            # List of custom functions to call during discovery
+            # Example: ['myapp.discovery.custom_filter']
+        ],
+        
+        # Discovery reporting
+        'GENERATE_DISCOVERY_REPORT': True,
+        'DISCOVERY_REPORT_FORMAT': 'json',  # 'json', 'csv', 'html'
+        'SAVE_DISCOVERY_HISTORY': True,
     }
     
 
@@ -118,7 +183,7 @@ class SyncConfig:
         'ENABLE_ROLE_BASED_ACCESS': True,
         'ENABLE_MULTI_TENANT': True,
         'ENABLE_DATA_FILTERING': True,
-        'DEFAULT_FILTER_TEMPLATE': 'organization',
+        'DEFAULT_FILTER_TEMPLATE': 'site',
     }
     
     @classmethod
@@ -212,25 +277,70 @@ class SyncConfig:
     
     @classmethod
     def get_all_models(cls) -> List[str]:
-        """Get all models from the application scope with inclusions and exclusions"""
+        """Get all models from the application scope with advanced filtering options"""
         if not cls.get_config('MODEL_DISCOVERY', 'AUTO_DISCOVER_MODELS'):
             return []
+        
+        import re
+        from django.core.cache import cache
+        
+        # Check cache first if enabled
+        cache_key = 'sb_sync_model_discovery'
+        if cls.get_config('MODEL_DISCOVERY', 'ENABLE_DISCOVERY_CACHING'):
+            cached_models = cache.get(cache_key)
+            if cached_models is not None:
+                return cached_models
         
         all_models = []
         include_apps = cls.get_config('MODEL_DISCOVERY', 'INCLUDE_APPS')
         exclude_models = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS')
         
-        # Define apps to exclude when INCLUDE_APPS is empty
+        # Get advanced configuration options
+        exclude_abstract = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_ABSTRACT_MODELS')
+        exclude_proxy = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_PROXY_MODELS')
+        exclude_historical = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_HISTORICAL_MODELS')
+        exclude_manager = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MANAGER_MODELS')
+        
+        include_patterns = cls.get_config('MODEL_DISCOVERY', 'INCLUDE_MODEL_PATTERNS')
+        exclude_patterns = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODEL_PATTERNS')
+        exclude_models_with_fields = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS_WITH_FIELDS')
+        require_models_with_fields = cls.get_config('MODEL_DISCOVERY', 'REQUIRE_MODELS_WITH_FIELDS')
+        app_specific_exclusions = cls.get_config('MODEL_DISCOVERY', 'APP_SPECIFIC_EXCLUSIONS')
+        include_model_types = cls.get_config('MODEL_DISCOVERY', 'INCLUDE_MODEL_TYPES')
+        max_models_per_app = cls.get_config('MODEL_DISCOVERY', 'MAX_MODELS_PER_APP')
+        
+        # Comprehensive list of apps to exclude when INCLUDE_APPS is empty
         excluded_apps = {
             # Django built-in apps
             'admin', 'auth', 'contenttypes', 'sessions', 'messages', 'staticfiles',
-            # sb-sync app itself
+            # sb-sync app itself and its internal models
             'sb_sync',
-            # sb-sync dependencies
+            # sb-sync dependencies and external packages
             'rest_framework', 'rest_framework_simplejwt', 'simple_history',
+            'django_filters', 'django_cors_headers', 'django_debug_toolbar',
+            'django_extensions', 'django_silk', 'django_prometheus',
+            'django_cacheops', 'django_simple_history',
             # Other common Django apps that shouldn't be synced
             'sites', 'flatpages', 'redirects', 'humanize', 'postgres', 'mysql',
-            'oracle', 'sqlite3', 'cache', 'gis', 'localflavor'
+            'oracle', 'sqlite3', 'cache', 'gis', 'localflavor',
+            # Additional Django contrib apps
+            'sitemaps', 'syndication', 'comments', 'webdesign',
+            # Database and cache backends
+            'django_db', 'django_cache', 'django_redis',
+            # Test and development apps
+            'test', 'tests', 'test_project', 'test_app',
+            # Common third-party apps that shouldn't be synced
+            'celery', 'redis', 'psutil', 'prometheus_client',
+            'bleach', 'html5lib', 'lxml', 'beautifulsoup4',
+            'markupsafe', 'webencodings', 'cssselect', 'soupsieve',
+            'click', 'kombu', 'billiard', 'amqp', 'vine',
+            'importlib_metadata', 'zipp', 'typing_extensions',
+            'packaging', 'pyparsing', 'python_dateutil', 'pytz',
+            'six', 'certifi', 'charset_normalizer', 'idna',
+            'urllib3', 'requests', 'python_json_logger',
+            'PyJWT', 'asgiref', 'sqlparse', 'tzdata',
+            'wcwidth', 'prompt_toolkit', 'click_repl', 'click_plugins',
+            'click_didyoumean', 'funcy', 'gprof2dot'
         }
         
         for app_config in apps.get_app_configs():
@@ -245,16 +355,87 @@ class SyncConfig:
                 if app_label in excluded_apps:
                     continue
             
-            if app_config.models_module:
-                for model in app_config.models_module.__dict__.values():
-                    if hasattr(model, '_meta') and hasattr(model._meta, 'app_label'):
-                        model_name = f"{app_label}.{model.__name__}"
-                        
-                        # Skip models that are explicitly excluded
-                        if model_name in exclude_models:
-                            continue
-                        
-                        all_models.append(model_name)
+            # Skip apps without models module
+            if not app_config.models_module:
+                continue
+                
+            app_models = []
+            
+            # Get models from the app
+            for model_name, model in app_config.models_module.__dict__.items():
+                # Skip if it's not a model class
+                if not hasattr(model, '_meta') or not hasattr(model._meta, 'app_label'):
+                    continue
+                    
+                full_model_name = f"{app_label}.{model.__name__}"
+                
+                # Skip models that are explicitly excluded
+                if full_model_name in exclude_models:
+                    continue
+                
+                # Check app-specific exclusions
+                if app_label in app_specific_exclusions:
+                    if model.__name__ in app_specific_exclusions[app_label]:
+                        continue
+                
+                # Check model type filtering
+                if model._meta.abstract and exclude_abstract:
+                    continue
+                if model._meta.proxy and exclude_proxy:
+                    continue
+                
+                # Check model type inclusion
+                model_type = 'abstract' if model._meta.abstract else 'proxy' if model._meta.proxy else 'concrete'
+                if model_type not in include_model_types:
+                    continue
+                
+                # Check pattern-based filtering
+                if include_patterns:
+                    if not any(re.match(pattern, full_model_name) for pattern in include_patterns):
+                        continue
+                
+                if exclude_patterns:
+                    if any(re.match(pattern, full_model_name) for pattern in exclude_patterns):
+                        continue
+                
+                # Check historical model exclusion
+                if exclude_historical and 'Historical' in model.__name__:
+                    continue
+                
+                # Check field-based filtering
+                model_fields = [field.name for field in model._meta.fields]
+                
+                # Exclude models with specific fields
+                if exclude_models_with_fields:
+                    if any(field in model_fields for field in exclude_models_with_fields):
+                        continue
+                
+                # Require models with specific fields
+                if require_models_with_fields:
+                    if not all(field in model_fields for field in require_models_with_fields):
+                        continue
+                
+                # Check manager-based exclusion
+                if exclude_manager and hasattr(model, '_default_manager'):
+                    manager_name = model._default_manager.__class__.__name__
+                    if manager_name in ['EmptyManager', 'DisabledManager']:
+                        continue
+                
+                app_models.append(full_model_name)
+            
+            # Limit models per app
+            if max_models_per_app and len(app_models) > max_models_per_app:
+                app_models = app_models[:max_models_per_app]
+            
+            all_models.extend(app_models)
+        
+        # Sort the final list
+        all_models = sorted(all_models)
+        
+        # Cache the results if enabled
+        if cls.get_config('MODEL_DISCOVERY', 'ENABLE_DISCOVERY_CACHING'):
+            cache_timeout = cls.get_config('MODEL_DISCOVERY', 'DISCOVERY_CACHE_TIMEOUT')
+            cache.set(cache_key, all_models, timeout=cache_timeout)
         
         return all_models
     
@@ -280,7 +461,10 @@ class SyncConfig:
     
     @classmethod
     def is_model_enabled(cls, model_name: str) -> bool:
-        """Check if a model is enabled for sync operations"""
+        """Check if a model is enabled for sync operations with advanced filtering"""
+        import re
+        from django.apps import apps
+        
         exclude_models = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS')
         include_apps = cls.get_config('MODEL_DISCOVERY', 'INCLUDE_APPS')
         
@@ -288,21 +472,58 @@ class SyncConfig:
         if model_name in exclude_models:
             return False
         
-        # Define apps to exclude when INCLUDE_APPS is empty
+        # Get advanced configuration options
+        exclude_abstract = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_ABSTRACT_MODELS')
+        exclude_proxy = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_PROXY_MODELS')
+        exclude_historical = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_HISTORICAL_MODELS')
+        
+        include_patterns = cls.get_config('MODEL_DISCOVERY', 'INCLUDE_MODEL_PATTERNS')
+        exclude_patterns = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODEL_PATTERNS')
+        exclude_models_with_fields = cls.get_config('MODEL_DISCOVERY', 'EXCLUDE_MODELS_WITH_FIELDS')
+        require_models_with_fields = cls.get_config('MODEL_DISCOVERY', 'REQUIRE_MODELS_WITH_FIELDS')
+        app_specific_exclusions = cls.get_config('MODEL_DISCOVERY', 'APP_SPECIFIC_EXCLUSIONS')
+        include_model_types = cls.get_config('MODEL_DISCOVERY', 'INCLUDE_MODEL_TYPES')
+        
+        # Comprehensive list of apps to exclude when INCLUDE_APPS is empty
         excluded_apps = {
             # Django built-in apps
             'admin', 'auth', 'contenttypes', 'sessions', 'messages', 'staticfiles',
-            # sb-sync app itself
+            # sb-sync app itself and its internal models
             'sb_sync',
-            # sb-sync dependencies
+            # sb-sync dependencies and external packages
             'rest_framework', 'rest_framework_simplejwt', 'simple_history',
+            'django_filters', 'django_cors_headers', 'django_debug_toolbar',
+            'django_extensions', 'django_silk', 'django_prometheus',
+            'django_cacheops', 'django_simple_history',
             # Other common Django apps that shouldn't be synced
             'sites', 'flatpages', 'redirects', 'humanize', 'postgres', 'mysql',
-            'oracle', 'sqlite3', 'cache', 'gis', 'localflavor'
+            'oracle', 'sqlite3', 'cache', 'gis', 'localflavor',
+            # Additional Django contrib apps
+            'sitemaps', 'syndication', 'comments', 'webdesign',
+            # Database and cache backends
+            'django_db', 'django_cache', 'django_redis',
+            # Test and development apps
+            'test', 'tests', 'test_project', 'test_app',
+            # Common third-party apps that shouldn't be synced
+            'celery', 'redis', 'psutil', 'prometheus_client',
+            'bleach', 'html5lib', 'lxml', 'beautifulsoup4',
+            'markupsafe', 'webencodings', 'cssselect', 'soupsieve',
+            'click', 'kombu', 'billiard', 'amqp', 'vine',
+            'importlib_metadata', 'zipp', 'typing_extensions',
+            'packaging', 'pyparsing', 'python_dateutil', 'pytz',
+            'six', 'certifi', 'charset_normalizer', 'idna',
+            'urllib3', 'requests', 'python_json_logger',
+            'PyJWT', 'asgiref', 'sqlparse', 'tzdata',
+            'wcwidth', 'prompt_toolkit', 'click_repl', 'click_plugins',
+            'click_didyoumean', 'funcy', 'gprof2dot'
         }
         
-        # Get the app label from the model name
-        app_label = model_name.split('.')[0] if '.' in model_name else model_name
+        # Get the app label and model name from the model name
+        if '.' in model_name:
+            app_label, model_class_name = model_name.split('.', 1)
+        else:
+            app_label = model_name
+            model_class_name = model_name
         
         # If INCLUDE_APPS is specified, check if model's app is included
         if include_apps:
@@ -312,6 +533,56 @@ class SyncConfig:
             # If INCLUDE_APPS is empty, exclude Django built-ins, sb-sync, and dependencies
             if app_label in excluded_apps:
                 return False
+        
+        # Check app-specific exclusions
+        if app_label in app_specific_exclusions:
+            if model_class_name in app_specific_exclusions[app_label]:
+                return False
+        
+        # Check pattern-based filtering
+        if include_patterns:
+            if not any(re.match(pattern, model_name) for pattern in include_patterns):
+                return False
+        
+        if exclude_patterns:
+            if any(re.match(pattern, model_name) for pattern in exclude_patterns):
+                return False
+        
+        # Check historical model exclusion
+        if exclude_historical and 'Historical' in model_class_name:
+            return False
+        
+        # Try to get the actual model class for advanced checks
+        try:
+            model_class = apps.get_model(model_name)
+            
+            # Check model type filtering
+            if exclude_abstract and model_class._meta.abstract:
+                return False
+            if exclude_proxy and model_class._meta.proxy:
+                return False
+            
+            # Check model type inclusion
+            model_type = 'abstract' if model_class._meta.abstract else 'proxy' if model_class._meta.proxy else 'concrete'
+            if model_type not in include_model_types:
+                return False
+            
+            # Check field-based filtering
+            model_fields = [field.name for field in model_class._meta.fields]
+            
+            # Exclude models with specific fields
+            if exclude_models_with_fields:
+                if any(field in model_fields for field in exclude_models_with_fields):
+                    return False
+            
+            # Require models with specific fields
+            if require_models_with_fields:
+                if not all(field in model_fields for field in require_models_with_fields):
+                    return False
+                    
+        except Exception:
+            # If we can't get the model class, assume it's enabled
+            pass
         
         return True
     

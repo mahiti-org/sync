@@ -1,79 +1,75 @@
 from django.contrib import admin
+from django.contrib.auth.models import Group
+from django.contrib.sites.models import Site
 from simple_history.admin import SimpleHistoryAdmin
-from .models import (
-    SyncLog, SyncMetadata, PerformanceMetrics, Organization, 
-    UserOrganization, ModelPermission, UserSyncMetadata, DataFilter
-)
+from .models import UserSite, ModelPermission, UserSyncMetadata, DataFilter, SyncConfiguration
 
-@admin.register(SyncLog)
-class SyncLogAdmin(SimpleHistoryAdmin):
-    list_display = ['timestamp', 'user', 'operation', 'status', 'model_name', 'object_count', 'processing_time']
-    list_filter = ['operation', 'status', 'timestamp', 'model_name']
-    search_fields = ['user__username', 'model_name', 'error_message']
-    readonly_fields = ['timestamp', 'processing_time']
-    ordering = ['-timestamp']
-    history_list_display = ['timestamp', 'user', 'operation', 'status', 'model_name']
+# Site admin removed - using Django Sites instead
+
+@admin.register(UserSite)
+class UserSiteAdmin(admin.ModelAdmin):
+    list_display = ('user', 'site', 'group', 'is_active', 'created_at')
+    list_filter = ('site', 'group', 'is_active', 'created_at')
+    search_fields = ('user__username', 'user__email', 'site__name', 'group__name')
+    ordering = ('-created_at',)
     
-    def has_add_permission(self, request):
-        return False
-
-@admin.register(SyncMetadata)
-class SyncMetadataAdmin(SimpleHistoryAdmin):
-    list_display = ['model_name', 'last_sync', 'total_synced']
-    search_fields = ['model_name']
-    readonly_fields = ['last_sync', 'total_synced']
-    ordering = ['model_name']
-    history_list_display = ['model_name', 'last_sync', 'total_synced']
-
-@admin.register(PerformanceMetrics)
-class PerformanceMetricsAdmin(SimpleHistoryAdmin):
-    list_display = ['timestamp', 'operation_type', 'model_name', 'batch_size', 'processing_time', 'query_count']
-    list_filter = ['operation_type', 'timestamp', 'model_name']
-    search_fields = ['model_name', 'operation_type']
-    readonly_fields = ['timestamp', 'processing_time', 'memory_usage', 'query_count']
-    ordering = ['-timestamp']
-    history_list_display = ['timestamp', 'operation_type', 'model_name', 'processing_time']
-
-@admin.register(Organization)
-class OrganizationAdmin(SimpleHistoryAdmin):
-    list_display = ['name', 'slug', 'is_active', 'created_at']
-    list_filter = ['is_active', 'created_at']
-    search_fields = ['name', 'slug', 'description']
-    prepopulated_fields = {'slug': ('name',)}
-    ordering = ['name']
-    history_list_display = ['name', 'slug', 'is_active']
-
-@admin.register(UserOrganization)
-class UserOrganizationAdmin(SimpleHistoryAdmin):
-    list_display = ['user', 'organization', 'group', 'is_active', 'created_at']
-    list_filter = ['is_active', 'organization', 'group', 'created_at']
-    search_fields = ['user__username', 'organization__name', 'group__name']
-    ordering = ['organization', 'user']
-    history_list_display = ['user', 'organization', 'group', 'is_active']
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user', 'site', 'group')
 
 @admin.register(ModelPermission)
-class ModelPermissionAdmin(SimpleHistoryAdmin):
-    list_display = ['organization', 'group', 'model_name', 'can_push', 'can_pull']
-    list_filter = ['organization', 'group', 'can_push', 'can_pull']
-    search_fields = ['organization__name', 'group__name', 'model_name']
-    list_editable = ['can_push', 'can_pull']
-    ordering = ['organization', 'group', 'model_name']
-    history_list_display = ['organization', 'group', 'model_name', 'can_push', 'can_pull']
+class ModelPermissionAdmin(admin.ModelAdmin):
+    list_display = ('site', 'group', 'model_name', 'can_push', 'can_pull', 'created_at')
+    list_filter = ('site', 'group', 'can_push', 'can_pull', 'created_at')
+    search_fields = ('model_name', 'site__name', 'group__name')
+    ordering = ('site__name', 'group__name', 'model_name')
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('site', 'group')
 
 @admin.register(UserSyncMetadata)
-class UserSyncMetadataAdmin(SimpleHistoryAdmin):
-    list_display = ['user', 'organization', 'model_name', 'last_sync', 'total_synced']
-    list_filter = ['organization', 'model_name', 'last_sync']
-    search_fields = ['user__username', 'organization__name', 'model_name']
-    readonly_fields = ['last_sync', 'total_synced']
-    ordering = ['organization', 'user', 'model_name']
-    history_list_display = ['user', 'organization', 'model_name', 'last_sync', 'total_synced']
+class UserSyncMetadataAdmin(admin.ModelAdmin):
+    list_display = ('user', 'site', 'model_name', 'last_sync', 'total_synced', 'created_at')
+    list_filter = ('site', 'model_name', 'last_sync', 'created_at')
+    search_fields = ('user__username', 'model_name', 'site__name')
+    ordering = ('-last_sync',)
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user', 'site')
 
 @admin.register(DataFilter)
-class DataFilterAdmin(SimpleHistoryAdmin):
-    list_display = ['organization', 'group', 'model_name', 'filter_name', 'is_active', 'created_at']
-    list_filter = ['organization', 'group', 'model_name', 'is_active', 'created_at']
-    search_fields = ['organization__name', 'group__name', 'model_name', 'filter_name']
-    readonly_fields = ['created_at']
-    ordering = ['organization', 'group', 'model_name']
-    history_list_display = ['organization', 'group', 'model_name', 'filter_name', 'is_active']
+class DataFilterAdmin(admin.ModelAdmin):
+    list_display = ('filter_name', 'site', 'group', 'model_name', 'is_active', 'created_at')
+    list_filter = ('site', 'group', 'model_name', 'is_active', 'created_at')
+    search_fields = ('filter_name', 'model_name', 'site__name', 'group__name')
+    ordering = ('site__name', 'model_name', 'filter_name')
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('site', 'group')
+
+@admin.register(SyncConfiguration)
+class SyncConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('key', 'value', 'description', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at')
+    search_fields = ('key', 'value', 'description')
+    ordering = ('key',)
+    readonly_fields = ('created_at', 'updated_at')
+
+# Customize the admin site
+admin.site.site_header = "SB Sync Administration"
+admin.site.site_title = "SB Sync Admin"
+admin.site.index_title = "Welcome to SB Sync Administration"
+
+# Add custom admin actions
+@admin.action(description="Activate selected organizations")
+def activate_organizations(modeladmin, request, queryset):
+    queryset.update(is_active=True)
+activate_organizations.short_description = "Activate selected organizations"
+
+@admin.action(description="Deactivate selected organizations")
+def deactivate_organizations(modeladmin, request, queryset):
+    queryset.update(is_active=False)
+deactivate_organizations.short_description = "Deactivate selected organizations"
+
+# Register custom actions for Site model
+SiteAdmin = admin.site._registry[Site]
+SiteAdmin.actions = list(SiteAdmin.actions) + [activate_organizations, deactivate_organizations]

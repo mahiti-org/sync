@@ -1,10 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import User, Group
+from django.contrib.sites.models import Site
 from django.utils import timezone
 from django.core.cache import cache
 from django.db.models import Index
 from simple_history.models import HistoricalRecords
 from simple_history import register
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SyncLog(models.Model):
     OPERATION_CHOICES = [
@@ -107,179 +112,131 @@ class PerformanceMetrics(models.Model):
 
 # Multi-tenant and Role-based Access Control Models
 
-class Organization(models.Model):
-    """Represents any type of organization (company, hospital, school, etc.)"""
-    name = models.CharField(max_length=200, unique=True)
-    slug = models.CharField(max_length=50, unique=True, db_index=True)
-    description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
+# Organization model removed - using Django Sites instead
+
+class UserSite(models.Model):
+    """Links users to Django Sites (sites) with Django Groups as roles"""
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    site = models.ForeignKey(Site, on_delete=models.CASCADE, db_index=True, help_text="Django Site representing the site")
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # History tracking
-    history = HistoricalRecords(
-        table_name='sb_sync_organization_history',
-        verbose_name='Organization History',
-        related_name='organization_history'
-    )
+    # Historical tracking
+    history = HistoricalRecords()
     
     class Meta:
-        db_table = 'sb_sync_organization'
+        db_table = 'sb_sync_user_site'
+        verbose_name = 'User Site'
+        verbose_name_plural = 'User Sites'
+        unique_together = ['user', 'site']
         indexes = [
-            models.Index(fields=['slug', 'is_active']),
+            models.Index(fields=['user', 'site']),
+            models.Index(fields=['site', 'group']),
         ]
     
     def __str__(self):
-        return self.name
-
-class UserOrganization(models.Model):
-    """Links users to organizations with Django Groups as roles"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True, help_text="Django auth group representing the user's role")
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    # History tracking
-    history = HistoricalRecords(
-        table_name='sb_sync_user_organization_history',
-        verbose_name='User Organization History',
-        related_name='user_organization_history'
-    )
-    
-    class Meta:
-        db_table = 'sb_sync_user_organization'
-        unique_together = ['user', 'organization']
-        indexes = [
-            models.Index(fields=['user', 'organization']),
-            models.Index(fields=['organization', 'group']),
-            models.Index(fields=['group', 'is_active']),
-        ]
-    
-    def __str__(self):
-        return f"{self.user.username} - {self.organization.name} ({self.group.name})"
+        return f"{self.user.username} - {self.site.name} ({self.group.name})"
 
 class ModelPermission(models.Model):
-    """Defines which models each group can access"""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True, help_text="Django auth group")
-    model_name = models.CharField(max_length=100, db_index=True)
-    can_push = models.BooleanField(default=False)
-    can_pull = models.BooleanField(default=False)
-    filters = models.JSONField(blank=True, null=True)  # Custom filters for data access
-    created_at = models.DateTimeField(auto_now_add=True)
+    """Define permissions for models per site/group"""
     
-    # History tracking
-    history = HistoricalRecords(
-        table_name='sb_sync_model_permission_history',
-        verbose_name='Model Permission History',
-        related_name='model_permission_history'
-    )
+    site = models.ForeignKey(Site, on_delete=models.CASCADE, db_index=True, help_text="Django Site representing the site")
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True)
+    model_name = models.CharField(max_length=255, db_index=True)
+    can_push = models.BooleanField(default=False, db_index=True)
+    can_pull = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Historical tracking
+    history = HistoricalRecords()
     
     class Meta:
         db_table = 'sb_sync_model_permission'
-        unique_together = ['organization', 'group', 'model_name']
+        verbose_name = 'Model Permission'
+        verbose_name_plural = 'Model Permissions'
+        unique_together = ['site', 'group', 'model_name']
         indexes = [
-            models.Index(fields=['organization', 'group']),
-            models.Index(fields=['model_name', 'organization']),
-            models.Index(fields=['can_push', 'can_pull']),
+            models.Index(fields=['site', 'group']),
+            models.Index(fields=['model_name', 'site']),
         ]
-
+    
     def __str__(self):
-        return f"{self.organization.name} - {self.group.name} - {self.model_name}"
+        return f"{self.site.name} - {self.group.name} - {self.model_name}"
 
 class UserSyncMetadata(models.Model):
-    """Track last sync timestamps for models per user/organization"""
+    """Track last sync timestamps for models per user/site"""
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
-    model_name = models.CharField(max_length=100, db_index=True)
-    last_sync = models.DateTimeField(default=timezone.now, db_index=True)
-    total_synced = models.BigIntegerField(default=0)
-    
-    # History tracking
-    history = HistoricalRecords(
-        table_name='sb_sync_user_sync_metadata_history',
-        verbose_name='User Sync Metadata History',
-        related_name='user_sync_metadata_history'
-    )
-    
-    class Meta:
-        db_table = 'sb_sync_user_sync_metadata'
-        unique_together = ['user', 'organization', 'model_name']
-        indexes = [
-            models.Index(fields=['user', 'organization', 'model_name']),
-            models.Index(fields=['organization', 'model_name', 'last_sync']),
-        ]
-    
-    def __str__(self):
-        return f"{self.user.username} - {self.organization.name} - {self.model_name}"
-
-class DataFilter(models.Model):
-    """Custom data filters for group-based access"""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, db_index=True)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True, help_text="Django auth group")
-    model_name = models.CharField(max_length=100, db_index=True)
-    filter_name = models.CharField(max_length=100)
-    filter_condition = models.JSONField()  # e.g., {"field": "department", "operator": "exact", "value": "SALES"}
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    # History tracking
-    history = HistoricalRecords(
-        table_name='sb_sync_data_filter_history',
-        verbose_name='Data Filter History',
-        related_name='data_filter_history'
-    )
-    
-    class Meta:
-        db_table = 'sb_sync_data_filter'
-        indexes = [
-            models.Index(fields=['organization', 'group', 'model_name']),
-            models.Index(fields=['model_name', 'is_active']),
-        ]
-    
-    def __str__(self):
-        return f"{self.organization.name} - {self.group.name} - {self.model_name} - {self.filter_name}"
-
-
-class SyncConfiguration(models.Model):
-    """Persistent configuration storage for sb-sync"""
-    SECTION_CHOICES = [
-        ('CORE', 'Core'),
-        ('ADVANCED', 'Advanced'),
-        ('ERROR', 'Error Handling'),
-        ('PERFORMANCE', 'Performance'),
-        ('SECURITY', 'Security'),
-        ('MODEL_DISCOVERY', 'Model Discovery'),
-        ('PERMISSIONS', 'Permissions'),
-    ]
-    
-    section = models.CharField(max_length=20, choices=SECTION_CHOICES, db_index=True)
-    key = models.CharField(max_length=100, db_index=True)
-    value = models.JSONField()  # Store any type of value (string, list, dict, bool, etc.)
-    description = models.TextField(blank=True)
-    is_active = models.BooleanField(default=True)
+    site = models.ForeignKey(Site, on_delete=models.CASCADE, db_index=True, help_text="Django Site representing the site")
+    model_name = models.CharField(max_length=255, db_index=True)
+    last_sync = models.DateTimeField(auto_now=True, db_index=True)
+    total_synced = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # History tracking
-    history = HistoricalRecords(
-        table_name='sb_sync_configuration_history',
-        verbose_name='Sync Configuration History',
-        related_name='sync_configuration_history'
-    )
+    # Historical tracking
+    history = HistoricalRecords()
+    
+    class Meta:
+        db_table = 'sb_sync_user_sync_metadata'
+        verbose_name = 'User Sync Metadata'
+        verbose_name_plural = 'User Sync Metadata'
+        unique_together = ['user', 'site', 'model_name']
+        indexes = [
+            models.Index(fields=['user', 'site', 'model_name']),
+            models.Index(fields=['site', 'model_name', 'last_sync']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.site.name} - {self.model_name}"
+
+class DataFilter(models.Model):
+    """Define data filters for models per site/group"""
+    
+    site = models.ForeignKey(Site, on_delete=models.CASCADE, db_index=True, help_text="Django Site representing the site")
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, db_index=True)
+    model_name = models.CharField(max_length=255, db_index=True)
+    filter_name = models.CharField(max_length=255, db_index=True)
+    filter_condition = models.TextField(help_text="JSON filter condition")
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Historical tracking
+    history = HistoricalRecords()
+    
+    class Meta:
+        db_table = 'sb_sync_data_filter'
+        verbose_name = 'Data Filter'
+        verbose_name_plural = 'Data Filters'
+        indexes = [
+            models.Index(fields=['site', 'group', 'model_name']),
+        ]
+    
+    def __str__(self):
+        return f"{self.site.name} - {self.group.name} - {self.model_name} - {self.filter_name}"
+
+
+class SyncConfiguration(models.Model):
+    """Store configuration settings for the sync system"""
+    
+    key = models.CharField(max_length=255, unique=True, db_index=True)
+    value = models.TextField()
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'sb_sync_configuration'
-        unique_together = ['section', 'key']
-        indexes = [
-            models.Index(fields=['section', 'key']),
-            models.Index(fields=['section', 'is_active']),
-        ]
-        ordering = ['section', 'key']
+        verbose_name = 'Sync Configuration'
+        verbose_name_plural = 'Sync Configurations'
     
     def __str__(self):
-        return f"{self.section}.{self.key} = {self.value}"
+        return f"{self.key}: {self.value[:50]}..."
     
     @classmethod
     def get_value(cls, section, key, default=None):

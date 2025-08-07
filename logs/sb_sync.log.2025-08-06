@@ -1,0 +1,5 @@
+2025-08-06 10:56:55 - INFO - Configuration updated: MODEL_DISCOVERY.INCLUDE_APPS = ['test_app']
+2025-08-06 10:56:55 - INFO - Configuration updated: MODEL_DISCOVERY.INCLUDE_APPS = []
+2025-08-06 12:19:23 - INFO - Configuration updated: MODEL_DISCOVERY.INCLUDE_APPS = ['demo_app']
+2025-08-06 12:29:51 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = ['demo_app']
+2025-08-06 12:41:36 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = ['demo_app']

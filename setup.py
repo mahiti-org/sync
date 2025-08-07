@@ -8,7 +8,7 @@ def read_readme():
 
 setup(
     name='sb-sync',
-    version='1.9.2',
+    version='2.0.0',
     description='Django package for data synchronization with PUSH/PULL APIs',
     long_description=read_readme(),
     long_description_content_type='text/markdown',

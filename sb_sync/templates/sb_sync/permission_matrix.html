@@ -1,159 +1,114 @@
-{% extends 'sb_sync/base.html' %}
+{% extends "sb_sync/base.html" %}
 {% load sb_sync_extras %}
 
-{% block title %}Permission Matrix - SB Sync Configuration{% endblock %}
-{% block page_title %}Permission Matrix{% endblock %}
-
-{% block page_actions %}
-<div class="btn-group" role="group">
-    <button type="button" class="btn btn-success" id="saveChangesBtn">
-        <i class="fas fa-save me-1"></i>Save Changes
-    </button>
-</div>
-{% endblock %}
+{% block title %}Permission Matrix - {{ block.super }}{% endblock %}
 
 {% block content %}
-<!-- Organization Selector -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-building me-2"></i>
-                    Organization
-                </h5>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-shield-alt"></i> Permission Matrix</h2>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary" id="saveBtn">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="exportBtn">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <label for="organizationSelect" class="form-label">Select Organization:</label>
-                        <select class="form-select" id="organizationSelect">
-                            {% for org in organizations %}
-                                <option value="{{ org.id }}" {% if org.id == organization.id %}selected{% endif %}>
-                                    {{ org.name }} ({{ org.slug }})
+
+            <!-- Organization Selector -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <label for="organizationSelect" class="form-label">Select Organization:</label>
+                            <select class="form-select" id="organizationSelect">
+                                {% for organization in organizations %}
+                                <option value="{{ organization.id }}" {% if organization.id == organization.id %}selected{% endif %}>
+                                    {{ organization.name }} ({{ organization.domain }})
                                 </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Current Organization:</label>
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-primary fs-6">{{ organization.name }}</span>
-                            <span class="badge bg-light text-dark ms-2">{{ organization.slug }}</span>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Current Organization:</label>
+                            <div>
+                                <span class="badge bg-primary fs-6">{{ organization.name }}</span>
+                                <span class="badge bg-light text-dark ms-2">{{ organization.domain }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
-<!-- Permission Matrix -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-shield-alt me-2"></i>
-                    Model Permissions Matrix
-                </h5>
-                <small class="text-muted">Use column header checkboxes to select/deselect all permissions for that group</small>
-            </div>
-            <div class="card-body">
-                <div class="permission-matrix">
+            <!-- Permission Matrix -->
+            <div class="card">
+                <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-bordered table-hover" id="permissionTable">
-                            <thead class="table-light">
+                        <table class="table table-bordered table-hover" id="permissionMatrix">
+                            <thead class="table-dark">
                                 <tr>
-                                    <th style="min-width: 200px;">Model / Group</th>
+                                    <th style="min-width: 200px;">Model</th>
                                     {% for group in groups %}
-                                        <th class="text-center" style="min-width: 80px;">
-                                            <div class="d-flex flex-column align-items-center">
-                                                <div class="form-check mb-2">
-                                                    <input class="form-check-input column-select-all" 
-                                                           type="checkbox" 
-                                                           id="select_all_push_{{ group.id }}"
-                                                           data-group="{{ group.id }}"
-                                                           data-permission="can_push">
-                                                    <label class="form-check-label small fw-bold" 
-                                                           for="select_all_push_{{ group.id }}">
-                                                        Push
-                                                    </label>
-                                                </div>
-                                                <small class="text-muted">{{ group.name }}</small>
+                                    <th class="text-center" style="min-width: 120px;">
+                                        <div class="d-flex flex-column align-items-center">
+                                            <span class="fw-bold">{{ group.name }}</span>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input column-select-all" 
+                                                       type="checkbox" 
+                                                       data-permission="push" 
+                                                       data-group="{{ group.id }}"
+                                                       id="push-all-{{ group.id }}">
+                                                <label class="form-check-label small" for="push-all-{{ group.id }}">Push</label>
                                             </div>
-                                        </th>
-                                        <th class="text-center" style="min-width: 80px;">
-                                            <div class="d-flex flex-column align-items-center">
-                                                <div class="form-check mb-2">
-                                                    <input class="form-check-input column-select-all" 
-                                                           type="checkbox" 
-                                                           id="select_all_pull_{{ group.id }}"
-                                                           data-group="{{ group.id }}"
-                                                           data-permission="can_pull">
-                                                    <label class="form-check-label small fw-bold" 
-                                                           for="select_all_pull_{{ group.id }}">
-                                                        Pull
-                                                    </label>
-                                                </div>
-                                                <small class="text-muted">{{ group.name }}</small>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input column-select-all" 
+                                                       type="checkbox" 
+                                                       data-permission="pull" 
+                                                       data-group="{{ group.id }}"
+                                                       id="pull-all-{{ group.id }}">
+                                                <label class="form-check-label small" for="pull-all-{{ group.id }}">Pull</label>
                                             </div>
-                                        </th>
+                                        </div>
+                                    </th>
                                     {% endfor %}
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for model in models %}
+                                {% for model in available_models %}
                                 <tr>
                                     <td>
-                                        <div class="d-flex align-items-center">
-                                            <i class="fas fa-database text-primary me-2"></i>
-                                            <div>
-                                                <strong>{{ model }}</strong>
-                                                <br>
-                                                <small class="text-muted">{{ model.split.0 }}</small>
+                                        <div class="fw-bold">{{ model.verbose_name }}</div>
+                                        <small class="text-muted">{{ model.full_name }}</small>
+                                    </td>
+                                    {% for group in groups %}
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center gap-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input permission-checkbox" 
+                                                       type="checkbox" 
+                                                       data-model="{{ model.full_name }}" 
+                                                       data-group="{{ group.id }}" 
+                                                       data-permission="push"
+                                                       id="push-{{ model.full_name|slugify }}-{{ group.id }}"
+                                                       {% if model.full_name in existing_permissions|get_permission:group.id:'push' %}checked{% endif %}>
+                                                <label class="form-check-label small" for="push-{{ model.full_name|slugify }}-{{ group.id }}">Push</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input permission-checkbox" 
+                                                       type="checkbox" 
+                                                       data-model="{{ model.full_name }}" 
+                                                       data-group="{{ group.id }}" 
+                                                       data-permission="pull"
+                                                       id="pull-{{ model.full_name|slugify }}-{{ group.id }}"
+                                                       {% if model.full_name in existing_permissions|get_permission:group.id:'pull' %}checked{% endif %}>
+                                                <label class="form-check-label small" for="pull-{{ model.full_name|slugify }}-{{ group.id }}">Pull</label>
                                             </div>
                                         </div>
                                     </td>
-                                    {% for group in groups %}
-                                        <td class="text-center">
-                                            <div class="permission-group" data-model="{{ model }}" data-group="{{ group.id }}">
-                                                <div class="form-check d-block">
-                                                    <input class="form-check-input permission-checkbox" 
-                                                           type="checkbox" 
-                                                           id="perm_{{ model|slugify }}_{{ group.id }}_can_push"
-                                                           data-model="{{ model }}"
-                                                           data-group="{{ group.id }}"
-                                                           data-permission="can_push"
-                                                           {% with key=group.id|add:"_"|add:model %}
-                                                             {% if existing_permissions|lookup:key|lookup:"can_push" %}checked{% endif %}
-                                                         {% endwith %}>
-                                                         <label class="form-check-label small" 
-                                                                for="perm_{{ model|slugify }}_{{ group.id }}_can_push">
-                                                             Push
-                                                         </label>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="permission-group" data-model="{{ model }}" data-group="{{ group.id }}">
-                                                <div class="form-check d-block">
-                                                    <input class="form-check-input permission-checkbox" 
-                                                           type="checkbox" 
-                                                           id="perm_{{ model|slugify }}_{{ group.id }}_can_pull"
-                                                           data-model="{{ model }}"
-                                                           data-group="{{ group.id }}"
-                                                           data-permission="can_pull"
-                                                           {% with key=group.id|add:"_"|add:model %}
-                                                             {% if existing_permissions|lookup:key|lookup:"can_pull" %}checked{% endif %}
-                                                         {% endwith %}>
-                                                         <label class="form-check-label small" 
-                                                                for="perm_{{ model|slugify }}_{{ group.id }}_can_pull">
-                                                             Pull
-                                                         </label>
-                                                </div>
-                                            </div>
-                                        </td>
                                     {% endfor %}
                                 </tr>
                                 {% endfor %}
@@ -166,56 +121,16 @@
     </div>
 </div>
 
-<!-- Legend -->
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="card-title mb-0">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Permission Types
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    {% for perm_type, perm_label in permission_types %}
-                    <div class="col-md-2 mb-2">
-                        <div class="d-flex align-items-center">
-                            <input type="checkbox" class="form-check-input me-2" disabled>
-                            <small class="fw-bold">{{ perm_label }}</small>
-                        </div>
-                        <small class="text-muted">
-                            {% if perm_type == 'can_push' %}
-                                Allow pushing data to this model
-                            {% elif perm_type == 'can_pull' %}
-                                Allow pulling data from this model
-                            {% endif %}
-                        </small>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Status Messages -->
-<div id="statusMessages"></div>
-
 <!-- Save Feedback Modal -->
 <div class="modal fade" id="saveFeedbackModal" tabindex="-1" aria-labelledby="saveFeedbackModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="saveFeedbackModalLabel">
-                    <i class="fas fa-save me-2"></i>Save Results
-                </h5>
+                <h5 class="modal-title" id="saveFeedbackModalLabel">Save Results</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div id="saveFeedbackContent">
-                    <!-- Content will be dynamically populated -->
-                </div>
+            <div class="modal-body" id="saveFeedbackContent">
+                <!-- Content will be populated dynamically -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -223,280 +138,164 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
 $(document).ready(function() {
-    let pendingChanges = [];
-    let isSaving = false;
-    let saveTimeout = null;
+    let saveTimeout;
+    const saveDelay = 1000; // 1 second delay
     
     // Organization selector
     $('#organizationSelect').change(function() {
-        const orgId = $(this).val();
-        window.location.href = `/api/sync/config/permissions/${orgId}/`;
+        const organizationId = $(this).val();
+        window.location.href = `/api/sync/config/permissions/${organizationId}/`;
     });
     
-    // Column header checkbox functionality
+    // Column select all functionality
     $('.column-select-all').change(function() {
         const groupId = $(this).data('group');
-        const permissionType = $(this).data('permission');
+        const permission = $(this).data('permission');
         const isChecked = $(this).is(':checked');
         
-        // Select/deselect all checkboxes in this column
-        $(`.permission-checkbox[data-group="${groupId}"][data-permission="${permissionType}"]`).prop('checked', isChecked).trigger('change');
+        // Update all checkboxes in this column for this permission
+        $(`.permission-checkbox[data-group="${groupId}"][data-permission="${permission}"]`)
+            .prop('checked', isChecked)
+            .trigger('change');
         
-        // Update the column header checkbox state based on individual checkboxes
-        updateColumnHeaderState(groupId, permissionType);
+        updateColumnHeaderState(groupId, permission);
     });
     
-    // Permission checkbox change handler - Optimized for bulk operations
+    // Individual permission checkbox
     $('.permission-checkbox').change(function() {
-        const model = $(this).data('model');
-        const group = $(this).data('group');
+        const groupId = $(this).data('group');
         const permission = $(this).data('permission');
-        const value = $(this).is(':checked');
         
-        // Add to pending changes
-        const changeKey = `${model}_${group}_${permission}`;
-        const existingIndex = pendingChanges.findIndex(c => c.key === changeKey);
-        
-        if (existingIndex >= 0) {
-            pendingChanges[existingIndex].value = value;
-        } else {
-            pendingChanges.push({
-                key: changeKey,
-                model: model,
-                group: group,
-                permission: permission,
-                value: value
-            });
-        }
-        
-        // Update column header state
-        updateColumnHeaderState(group, permission);
-        
-        updateSaveButton();
-        
-        // Auto-save after 2 seconds of inactivity (debounced)
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => {
-            if (pendingChanges.length > 0) {
-                saveChanges();
-            }
-        }, 2000);
+        updateColumnHeaderState(groupId, permission);
+        debounceSave();
     });
     
-    // Function to update column header checkbox state
-    function updateColumnHeaderState(groupId, permissionType) {
-        const checkboxes = $(`.permission-checkbox[data-group="${groupId}"][data-permission="${permissionType}"]`);
-        const checkedCount = checkboxes.filter(':checked').length;
-        const totalCount = checkboxes.length;
-        const columnHeader = $(`#select_all_${permissionType}_${groupId}`);
+    function updateColumnHeaderState(groupId, permission) {
+        const totalCheckboxes = $(`.permission-checkbox[data-group="${groupId}"][data-permission="${permission}"]`).length;
+        const checkedCheckboxes = $(`.permission-checkbox[data-group="${groupId}"][data-permission="${permission}"]:checked`).length;
         
-        if (checkedCount === 0) {
-            columnHeader.prop('indeterminate', false).prop('checked', false);
-        } else if (checkedCount === totalCount) {
-            columnHeader.prop('indeterminate', false).prop('checked', true);
+        const headerCheckbox = $(`.column-select-all[data-group="${groupId}"][data-permission="${permission}"]`);
+        
+        if (checkedCheckboxes === 0) {
+            headerCheckbox.prop('indeterminate', false).prop('checked', false);
+        } else if (checkedCheckboxes === totalCheckboxes) {
+            headerCheckbox.prop('indeterminate', false).prop('checked', true);
         } else {
-            columnHeader.prop('indeterminate', true).prop('checked', false);
+            headerCheckbox.prop('indeterminate', true);
         }
     }
     
-    // Optimized save function
-    function saveChanges() {
-        if (isSaving || pendingChanges.length === 0) return;
-        
-        isSaving = true;
-        $('#saveChangesBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Saving...');
-        
-        const organizationId = $('#organizationSelect').val();
-        const totalChanges = pendingChanges.length;
-        
-        // Group changes by group_id for efficient processing
-        const changesByGroup = {};
-        pendingChanges.forEach(change => {
-            if (!changesByGroup[change.group]) {
-                changesByGroup[change.group] = [];
-            }
-            changesByGroup[change.group].push({
-                model_name: change.model,
-                permission_type: change.permission,
-                value: change.value,
-                group_id: change.group
-            });
-        });
-        
-        // Process each group's changes
-        const savePromises = Object.values(changesByGroup).map(groupChanges => {
-            return $.ajax({
-                url: '{% url "sb_sync:bulk_update_permissions" %}',
-                method: 'POST',
-                data: JSON.stringify({
-                    organization_id: organizationId,
-                    permissions: groupChanges
-                }),
-                contentType: 'application/json',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                }
-            });
-        });
-        
-        // Wait for all saves to complete
-        Promise.all(savePromises)
-            .then(responses => {
-                let totalUpdated = 0;
-                let hasErrors = false;
-                let errorMessages = [];
-                let successDetails = [];
-                
-                responses.forEach((response, index) => {
-                    if (response.success) {
-                        const updatedCount = response.updated_count || 0;
-                        totalUpdated += updatedCount;
-                        successDetails.push(`Group ${index + 1}: ${updatedCount} permissions updated`);
-                    } else {
-                        hasErrors = true;
-                        const errorMsg = response.error || 'Unknown error';
-                        errorMessages.push(`Group ${index + 1}: ${errorMsg}`);
-                        showStatusMessage('danger', `Error: ${errorMsg}`);
-                    }
-                });
-                
-                // Show detailed feedback modal
-                showSaveFeedbackModal({
-                    totalChanges: totalChanges,
-                    totalUpdated: totalUpdated,
-                    hasErrors: hasErrors,
-                    successDetails: successDetails,
-                    errorMessages: errorMessages
-                });
-                
-                if (!hasErrors) {
-                    pendingChanges = [];
-                    updateSaveButton();
-                }
-            })
-            .catch(error => {
-                showStatusMessage('danger', `Error saving changes: ${error}`);
-                showSaveFeedbackModal({
-                    totalChanges: totalChanges,
-                    totalUpdated: 0,
-                    hasErrors: true,
-                    successDetails: [],
-                    errorMessages: [`Network error: ${error}`]
-                });
-            })
-            .finally(() => {
-                isSaving = false;
-                $('#saveChangesBtn').prop('disabled', false).html('<i class="fas fa-save me-1"></i>Save Changes');
-            });
+    // Debounced save function
+    function debounceSave() {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(savePermissions, saveDelay);
     }
     
-    // Function to show save feedback modal
-    function showSaveFeedbackModal(data) {
+    // Save permissions
+    function savePermissions() {
+        const organizationId = $('#organizationSelect').val();
+        const permissions = [];
+        
+        $('.permission-checkbox:checked').each(function() {
+            permissions.push({
+                organization_id: organizationId,
+                group_id: $(this).data('group'),
+                model_name: $(this).data('model'),
+                permission_type: $(this).data('permission'),
+                value: true
+            });
+        });
+        
+        // Also include unchecked permissions to clear them
+        $('.permission-checkbox:not(:checked)').each(function() {
+            permissions.push({
+                organization_id: organizationId,
+                group_id: $(this).data('group'),
+                model_name: $(this).data('model'),
+                permission_type: $(this).data('permission'),
+                value: false
+            });
+        });
+        
+        $.ajax({
+            url: '/api/sync/config/permissions/bulk-save/',
+            method: 'POST',
+            data: JSON.stringify({
+                organization_id: organizationId,
+                permissions: permissions
+            }),
+            contentType: 'application/json',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            success: function(response) {
+                if (response.success) {
+                    showSaveFeedback(response, true);
+                } else {
+                    showSaveFeedback(response, false);
+                }
+            },
+            error: function(xhr, status, error) {
+                showSaveFeedback({
+                    success: false,
+                    error: 'Network error: ' + error
+                }, false);
+            }
+        });
+    }
+    
+    function showSaveFeedback(response, isSuccess) {
         const modal = $('#saveFeedbackModal');
         const content = $('#saveFeedbackContent');
         
-        let modalContent = '';
+        let icon, title, message, summary;
         
-        if (data.hasErrors) {
-            modalContent = `
-                <div class="text-center mb-3">
-                    <i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
-                </div>
-                <h6 class="text-center mb-3">Save Operation Completed with Issues</h6>
-                <div class="alert alert-warning">
-                    <strong>Summary:</strong><br>
-                    • Attempted to save: ${data.totalChanges} changes<br>
-                    • Successfully updated: ${data.totalUpdated} permissions<br>
-                    • Errors encountered: ${data.errorMessages.length}
-                </div>
-            `;
-            
-            if (data.errorMessages.length > 0) {
-                modalContent += `
-                    <div class="mt-3">
-                        <strong>Error Details:</strong>
-                        <ul class="list-unstyled mt-2">
-                            ${data.errorMessages.map(msg => `<li class="text-danger"><i class="fas fa-times me-1"></i>${msg}</li>`).join('')}
-                        </ul>
-                    </div>
-                `;
-            }
+        if (isSuccess) {
+            icon = '<i class="fas fa-check-circle text-success me-2"></i>';
+            title = 'Save Successful';
+            message = 'Permissions have been saved successfully.';
+            summary = `Updated ${response.updated_count || 0} permissions, created ${response.created_count || 0} new permissions.`;
         } else {
-            modalContent = `
-                <div class="text-center mb-3">
-                    <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
-                </div>
-                <h6 class="text-center mb-3">Save Operation Successful!</h6>
-                <div class="alert alert-success">
-                    <strong>Summary:</strong><br>
-                    • Total changes processed: ${data.totalChanges}<br>
-                    • Successfully updated: ${data.totalUpdated} permissions<br>
-                    • Success rate: 100%
-                </div>
-            `;
-            
-            if (data.successDetails.length > 0) {
-                modalContent += `
-                    <div class="mt-3">
-                        <strong>Update Details:</strong>
-                        <ul class="list-unstyled mt-2">
-                            ${data.successDetails.map(detail => `<li class="text-success"><i class="fas fa-check me-1"></i>${detail}</li>`).join('')}
-                        </ul>
-                    </div>
-                `;
-            }
+            icon = '<i class="fas fa-exclamation-triangle text-warning me-2"></i>';
+            title = 'Save Failed';
+            message = response.error || 'An error occurred while saving permissions.';
+            summary = 'Please check the error details and try again.';
         }
         
-        content.html(modalContent);
+        content.html(`
+            <div class="d-flex align-items-start">
+                ${icon}
+                <div>
+                    <h6 class="mb-2">${title}</h6>
+                    <p class="mb-2">${message}</p>
+                    <small class="text-muted">${summary}</small>
+                </div>
+            </div>
+        `);
         
-        // Show the modal
-        const bootstrapModal = new bootstrap.Modal(modal);
-        bootstrapModal.show();
+        modal.modal('show');
         
-        // Auto-hide after 8 seconds for success, 12 seconds for errors
-        setTimeout(() => {
-            bootstrapModal.hide();
-        }, data.hasErrors ? 12000 : 8000);
+        // Auto-dismiss after 3 seconds
+        setTimeout(function() {
+            modal.modal('hide');
+        }, 3000);
     }
     
-    // Manual save button
-    $('#saveChangesBtn').click(function() {
-        saveChanges();
+    // Export functionality
+    $('#exportBtn').click(function() {
+        const organizationId = $('#organizationSelect').val();
+        window.location.href = `/api/sync/config/permissions/export/${organizationId}/`;
     });
     
-    function updateSaveButton() {
-        const btn = $('#saveChangesBtn');
-        if (pendingChanges.length > 0) {
-            btn.removeClass('btn-success').addClass('btn-warning')
-                .html(`<i class="fas fa-save me-1"></i>Save Changes (${pendingChanges.length})`);
-        } else {
-            btn.removeClass('btn-warning').addClass('btn-success')
-                .html('<i class="fas fa-save me-1"></i>Save Changes');
-        }
-    }
+    // Manual save button
+    $('#saveBtn').click(function() {
+        savePermissions();
+    });
     
-    function showStatusMessage(type, message) {
-        const alertId = 'alert-' + Date.now();
-        const alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show" id="${alertId}" role="alert">
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `;
-        
-        $('#statusMessages').append(alertHtml);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            $(`#${alertId}`).fadeOut();
-        }, 5000);
-    }
-    
+    // Helper function to get CSRF token
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -511,16 +310,6 @@ $(document).ready(function() {
         }
         return cookieValue;
     }
-    
-    // Initialize column header states
-    {% for group in groups %}
-        {% for perm_type, perm_label in permission_types %}
-            updateColumnHeaderState({{ group.id }}, '{{ perm_type }}');
-        {% endfor %}
-    {% endfor %}
-    
-    // Initialize
-    updateSaveButton();
 });
 </script>
 {% endblock %} 
