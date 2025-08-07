@@ -11,6 +11,9 @@ from .models import (
     UserSyncMetadata, DataFilter
 )
 from django.utils import timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class MultiTenantPermission(permissions.BasePermission):
@@ -70,8 +73,16 @@ class SyncPermission:
         
         if has_permission is None:
             try:
+                # Superusers have all permissions
+                if user.is_superuser:
+                    has_permission = True
+                    cache.set(cache_key, has_permission, timeout=300)
+                    logger.debug(f"Superuser {user.username} granted {operation} permission for {model_name}")
+                    return has_permission
+                
                 # Get user's groups in this organization
                 user_groups = SyncPermission.get_user_groups(user, organization)
+                logger.debug(f"User {user.username} groups for {organization.name}: {[g.name for g in user_groups]}")
                 
                 # Check if any of user's groups have permission
                 has_permission = False
@@ -79,11 +90,11 @@ class SyncPermission:
                     permission = ModelPermission.objects.filter(
                         organization=organization,
                         group=group,
-                        model_name=model_name,
-                        is_active=True
+                        model_name=model_name
                     ).first()
                     
                     if permission:
+                        logger.debug(f"Found permission for group {group.name}: push={permission.can_push}, pull={permission.can_pull}")
                         if operation == 'push':
                             has_permission = permission.can_push
                         elif operation == 'pull':
@@ -93,11 +104,18 @@ class SyncPermission:
                             has_permission = permission.can_pull
                         
                         if has_permission:
+                            logger.debug(f"User {user.username} granted {operation} permission for {model_name} via group {group.name}")
                             break
+                    else:
+                        logger.debug(f"No permission found for group {group.name} on model {model_name}")
+                
+                if not has_permission:
+                    logger.warning(f"User {user.username} denied {operation} permission for {model_name} in {organization.name}")
                 
                 cache.set(cache_key, has_permission, timeout=300)
                 
-            except Exception:
+            except Exception as e:
+                logger.error(f"Error checking permission for {user.username} on {model_name}: {str(e)}")
                 has_permission = False
                 cache.set(cache_key, has_permission, timeout=300)
         
@@ -110,13 +128,18 @@ class SyncPermission:
         groups = cache.get(cache_key)
         
         if groups is None:
-            user_org = UserOrganization.objects.filter(
-                user=user,
-                organization=organization,
-                is_active=True
-            ).first()
+            # Superusers have access to all groups
+            if user.is_superuser:
+                groups = list(Group.objects.all())
+            else:
+                user_org = UserOrganization.objects.filter(
+                    user=user,
+                    organization=organization,
+                    is_active=True
+                ).first()
+                
+                groups = [user_org.group] if user_org else []
             
-            groups = [user_org.group] if user_org else []
             cache.set(cache_key, groups, timeout=300)
         
         return groups
