@@ -1,0 +1,66 @@
+2025-08-07 11:22:23 - WARNING - Medium severity error: {'error_type': 'validation', 'severity': 'medium', 'message': 'User is not associated with any organization', 'retryable': False, 'context': {}, 'traceback': 'NoneType: None\n'}
+2025-08-07 11:22:23 - ERROR - Error report: {'error_id': 'validation_1754565743', 'error_type': 'validation', 'severity': 'medium', 'message': 'User is not associated with any organization', 'timestamp': 1754565743.521049, 'context': {}, 'traceback': 'NoneType: None\n'}
+2025-08-07 11:23:07 - WARNING - Medium severity error: {'error_type': 'validation', 'severity': 'medium', 'message': 'User is not associated with any organization', 'retryable': False, 'context': {}, 'traceback': 'NoneType: None\n'}
+2025-08-07 11:23:07 - ERROR - Error report: {'error_id': 'validation_1754565787', 'error_type': 'validation', 'severity': 'medium', 'message': 'User is not associated with any organization', 'timestamp': 1754565787.958796, 'context': {}, 'traceback': 'NoneType: None\n'}
+2025-08-07 11:27:10 - INFO - PUSH request from user admin in Default Organization: {"data": [{"_model": "test_app.Product", "name": "Test Product", "price": 10.99}]}
+2025-08-07 11:27:10 - INFO - Function post used 2.09MB of memory
+2025-08-07 11:27:10 - INFO - Function post executed 6 queries
+2025-08-07 11:27:16 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = ['test_app']
+2025-08-07 11:27:22 - INFO - PUSH request from user admin in Default Organization: {"data": [{"_model": "test_app.Product", "name": "Test Product", "price": 10.99}]}
+2025-08-07 11:27:22 - INFO - Function post used 3.17MB of memory
+2025-08-07 11:27:22 - INFO - Function post executed 6 queries
+2025-08-07 11:47:49 - INFO - PUSH request from user admin in Default Organization: {"data": [{"_model": "sb_sync.SyncLog", "user": 1, "operation": "PUSH", "status": "SUCCESS", "model_name": "test", "object_count": 1}]}
+2025-08-07 11:47:49 - INFO - Function post used 2.84MB of memory
+2025-08-07 11:47:49 - INFO - Function post executed 6 queries
+2025-08-07 11:49:03 - INFO - No models specified in request, using 0 default models
+2025-08-07 11:49:03 - INFO - PULL request completed for user admin in Default Organization: 0 records
+2025-08-07 11:49:03 - INFO - Function post used 2.97MB of memory
+2025-08-07 11:49:03 - INFO - Function post executed 8 queries
+2025-08-07 11:49:14 - INFO - PULL request completed for user admin in Default Organization: 0 records
+2025-08-07 11:49:14 - INFO - Function post used 0.45MB of memory
+2025-08-07 11:49:14 - INFO - Function post executed 7 queries
+2025-08-07 11:49:20 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = ['sb_sync']
+2025-08-07 11:49:27 - INFO - PULL request completed for user admin in Default Organization: 0 records
+2025-08-07 11:49:27 - INFO - Function post used 0.12MB of memory
+2025-08-07 11:49:27 - INFO - Function post executed 7 queries
+2025-08-07 11:49:34 - INFO - No models specified in request, using 12 default models
+2025-08-07 11:49:34 - WARNING - Model 'sb_sync.User' not found
+2025-08-07 11:49:34 - WARNING - Model 'sb_sync.Group' not found
+2025-08-07 11:49:34 - INFO - PULL request completed for user admin in Default Organization: 15 records
+2025-08-07 11:49:34 - INFO - Function post used 1.59MB of memory
+2025-08-07 11:49:34 - INFO - Function post executed 163 queries
+2025-08-07 11:52:41 - INFO - PUSH request from user admin in Default Organization: {"data": [{"_model": "sb_sync.SyncLog", "user": 1, "operation": "PUSH", "status": "SUCCESS", "model_name": "test", "object_count": 1}]}
+2025-08-07 11:52:41 - INFO - Function post used 0.78MB of memory
+2025-08-07 11:52:41 - INFO - Function post executed 6 queries
+2025-08-07 11:52:52 - INFO - No models specified in request, using 12 default models
+2025-08-07 11:52:52 - WARNING - Model 'sb_sync.User' not found
+2025-08-07 11:52:52 - WARNING - Model 'sb_sync.Group' not found
+2025-08-07 11:52:52 - INFO - PULL request completed for user admin in Default Organization: 15 records
+2025-08-07 11:52:52 - INFO - Function post used 0.52MB of memory
+2025-08-07 11:52:52 - INFO - Function post executed 115 queries
+2025-08-07 11:57:04 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = ['auth']
+2025-08-07 11:57:17 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = []
+2025-08-07 12:03:33 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = ['auth']
+2025-08-07 12:03:43 - INFO - Configuration updated in database: MODEL_DISCOVERY.EXCLUDE_MODEL_PATTERNS = ['.*User']
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.AUTO_DISCOVER_MODELS = True
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = []
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.EXCLUDE_MODELS = ['sb_sync.SyncLog', 'sb_sync.SyncMetadata', 'sb_sync.PerformanceMetrics', 'sb_sync.Organization', 'sb_sync.UserOrganization', 'sb_sync.ModelPermission', 'sb_sync.UserSyncMetadata', 'sb_sync.DataFilter']
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.EXCLUDE_ABSTRACT_MODELS = True
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.EXCLUDE_PROXY_MODELS = True
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.EXCLUDE_HISTORICAL_MODELS = True
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.EXCLUDE_MANAGER_MODELS = True
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_MODEL_PATTERNS = []
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.EXCLUDE_MODEL_PATTERNS = ['^.*\\.Historical.*$', '^.*\\.Log$', '^.*\\.Cache$', '^.*\\.Session$', '^.*\\.Permission$']
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.EXCLUDE_MODELS_WITH_FIELDS = ['created_at', 'updated_at', 'deleted_at']
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.REQUIRE_MODELS_WITH_FIELDS = []
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.APP_SPECIFIC_EXCLUSIONS = {'auth': ['Group', 'Permission'], 'admin': ['LogEntry']}
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_MODEL_TYPES = ['concrete']
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.ENABLE_DISCOVERY_CACHING = True
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.DISCOVERY_CACHE_TIMEOUT = 3600
+2025-08-07 12:03:56 - INFO - Configuration updated in database: MODEL_DISCOVERY.MAX_MODELS_PER_APP = 100
+2025-08-07 12:05:24 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = ['auth']
+2025-08-07 12:05:34 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = ['auth']
+2025-08-07 12:05:53 - INFO - Configuration updated in database: MODEL_DISCOVERY.EXCLUDE_MODEL_PATTERNS = ['.*User$']
+2025-08-07 12:06:04 - INFO - Configuration updated in database: MODEL_DISCOVERY.INCLUDE_APPS = ['auth']
+2025-08-07 12:15:18 - WARNING - No organization found for user: admin
+2025-08-07 13:49:45 - INFO - PUSH request from user testuser in example.com: {"models": {"test_app.Product": [{"id": 1, "name": "Test Product", "price": 29.99, "description": "A test product for API testing"}]}, "organization_id": 1}

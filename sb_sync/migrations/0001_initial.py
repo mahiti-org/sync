@@ -7,6 +7,81 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def migrate_organization_to_site(apps, schema_editor):
+    """
+    Migrate from organization-based to site-based schema.
+    This handles upgrades from v1.x to v2.x.
+    """
+    from django.db import connection
+    
+    with connection.cursor() as cursor:
+        # Check if old organization table exists
+        cursor.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='sb_sync_user_organization'
+        """)
+        has_old_table = cursor.fetchone() is not None
+        
+        if has_old_table:
+            # Create default site if none exists
+            cursor.execute("""
+                INSERT OR IGNORE INTO django_site (id, name, domain)
+                VALUES (1, 'Default Organization', 'example.com')
+            """)
+            
+            # Copy data from old table to new table
+            cursor.execute("""
+                INSERT INTO sb_sync_user_site (user_id, site_id, group_id, is_active, created_at, updated_at)
+                SELECT user_id, organization_id, group_id, is_active, created_at, updated_at
+                FROM sb_sync_user_organization
+            """)
+            
+            # Drop old table
+            cursor.execute("DROP TABLE IF EXISTS sb_sync_user_organization")
+
+
+def reverse_migrate_organization_to_site(apps, schema_editor):
+    """
+    Reverse migration (if needed for rollback).
+    """
+    from django.db import connection
+    
+    with connection.cursor() as cursor:
+        # Check if new site table exists
+        cursor.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='sb_sync_user_site'
+        """)
+        has_new_table = cursor.fetchone() is not None
+        
+        if has_new_table:
+            # Create old table structure
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sb_sync_user_organization (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    organization_id INTEGER NOT NULL,
+                    group_id INTEGER,
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES auth_user (id),
+                    FOREIGN KEY (organization_id) REFERENCES django_site (id),
+                    FOREIGN KEY (group_id) REFERENCES auth_group (id)
+                )
+            """)
+            
+            # Copy data back
+            cursor.execute("""
+                INSERT INTO sb_sync_user_organization (user_id, organization_id, group_id, is_active, created_at, updated_at)
+                SELECT user_id, site_id, group_id, is_active, created_at, updated_at
+                FROM sb_sync_user_site
+            """)
+            
+            # Drop new table
+            cursor.execute("DROP TABLE IF EXISTS sb_sync_user_site")
+
+
 class Migration(migrations.Migration):
 
     initial = True
@@ -18,6 +93,13 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Run organization to site migration first
+        migrations.RunPython(
+            migrate_organization_to_site,
+            reverse_migrate_organization_to_site,
+        ),
+        
+        # Then create all the new models
         migrations.CreateModel(
             name='SyncConfiguration',
             fields=[
@@ -99,7 +181,6 @@ class Migration(migrations.Migration):
                 ('group', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='auth.group')),
                 ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
                 ('site', models.ForeignKey(blank=True, db_constraint=False, help_text='Django Site representing the site', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='sites.site')),
-                ('user', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'verbose_name': 'historical User Site',
@@ -114,7 +195,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
                 ('model_name', models.CharField(db_index=True, max_length=255)),
-                ('last_sync', models.DateTimeField(blank=True, db_index=True, editable=False)),
+                ('last_sync', models.DateTimeField(blank=True, null=True)),
                 ('total_synced', models.IntegerField(default=0)),
                 ('created_at', models.DateTimeField(blank=True, editable=False)),
                 ('updated_at', models.DateTimeField(blank=True, editable=False)),
@@ -124,11 +205,10 @@ class Migration(migrations.Migration):
                 ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
                 ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
                 ('site', models.ForeignKey(blank=True, db_constraint=False, help_text='Django Site representing the site', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to='sites.site')),
-                ('user', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'verbose_name': 'historical User Sync Metadata',
-                'verbose_name_plural': 'historical User Sync Metadata',
+                'verbose_name_plural': 'historical User Sync Metadatas',
                 'ordering': ('-history_date', '-history_id'),
                 'get_latest_by': ('history_date', 'history_id'),
             },
@@ -138,42 +218,38 @@ class Migration(migrations.Migration):
             name='PerformanceMetrics',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('operation_type', models.CharField(db_index=True, max_length=20)),
-                ('model_name', models.CharField(db_index=True, max_length=100)),
-                ('batch_size', models.IntegerField()),
-                ('processing_time', models.FloatField()),
-                ('memory_usage', models.FloatField(blank=True, null=True)),
-                ('query_count', models.IntegerField()),
-                ('timestamp', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
+                ('operation', models.CharField(db_index=True, max_length=50)),
+                ('model_name', models.CharField(db_index=True, max_length=255)),
+                ('records_processed', models.IntegerField(default=0)),
+                ('processing_time', models.FloatField(help_text='Processing time in seconds')),
+                ('memory_usage', models.FloatField(help_text='Memory usage in MB')),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
             ],
             options={
+                'verbose_name': 'Performance Metrics',
+                'verbose_name_plural': 'Performance Metrics',
                 'db_table': 'sb_sync_performance_metrics',
-                'ordering': ['-timestamp'],
-                'indexes': [models.Index(fields=['operation_type', 'timestamp'], name='sb_sync_per_operati_ef542a_idx'), models.Index(fields=['model_name', 'timestamp'], name='sb_sync_per_model_n_7213dd_idx')],
             },
         ),
         migrations.CreateModel(
             name='HistoricalPerformanceMetrics',
             fields=[
                 ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
-                ('operation_type', models.CharField(db_index=True, max_length=20)),
-                ('model_name', models.CharField(db_index=True, max_length=100)),
-                ('batch_size', models.IntegerField()),
-                ('processing_time', models.FloatField()),
-                ('memory_usage', models.FloatField(blank=True, null=True)),
-                ('query_count', models.IntegerField()),
-                ('timestamp', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
+                ('operation', models.CharField(db_index=True, max_length=50)),
+                ('model_name', models.CharField(db_index=True, max_length=255)),
+                ('records_processed', models.IntegerField(default=0)),
+                ('processing_time', models.FloatField(help_text='Processing time in seconds')),
+                ('memory_usage', models.FloatField(help_text='Memory usage in MB')),
+                ('created_at', models.DateTimeField(blank=True, editable=False)),
                 ('history_id', models.AutoField(primary_key=True, serialize=False)),
                 ('history_date', models.DateTimeField(db_index=True)),
                 ('history_change_reason', models.CharField(max_length=100, null=True)),
                 ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
                 ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('history_relation', models.ForeignKey(db_constraint=False, on_delete=django.db.models.deletion.DO_NOTHING, related_name='performance_metrics_history', to='sb_sync.performancemetrics')),
             ],
             options={
-                'verbose_name': 'Performance Metrics History',
-                'verbose_name_plural': 'historical performance metricss',
-                'db_table': 'sb_sync_performance_metrics_history',
+                'verbose_name': 'historical Performance Metrics',
+                'verbose_name_plural': 'historical Performance Metricss',
                 'ordering': ('-history_date', '-history_id'),
                 'get_latest_by': ('history_date', 'history_id'),
             },
@@ -183,45 +259,37 @@ class Migration(migrations.Migration):
             name='SyncLog',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('operation', models.CharField(choices=[('PUSH', 'Push'), ('PULL', 'Pull')], db_index=True, max_length=10)),
-                ('status', models.CharField(choices=[('SUCCESS', 'Success'), ('ERROR', 'Error'), ('WARNING', 'Warning')], db_index=True, max_length=10)),
-                ('model_name', models.CharField(blank=True, db_index=True, max_length=100)),
-                ('object_count', models.IntegerField(default=0)),
-                ('error_message', models.TextField(blank=True)),
-                ('request_data', models.JSONField(blank=True, null=True)),
-                ('timestamp', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                ('processing_time', models.FloatField(default=0.0)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                ('operation', models.CharField(db_index=True, max_length=50)),
+                ('model_name', models.CharField(db_index=True, max_length=255)),
+                ('status', models.CharField(db_index=True, max_length=50)),
+                ('message', models.TextField(blank=True)),
+                ('timestamp', models.DateTimeField(auto_now_add=True, db_index=True)),
+                ('user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
             ],
             options={
+                'verbose_name': 'Sync Log',
+                'verbose_name_plural': 'Sync Logs',
                 'db_table': 'sb_sync_log',
-                'ordering': ['-timestamp'],
             },
         ),
         migrations.CreateModel(
             name='HistoricalSyncLog',
             fields=[
                 ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
-                ('operation', models.CharField(choices=[('PUSH', 'Push'), ('PULL', 'Pull')], db_index=True, max_length=10)),
-                ('status', models.CharField(choices=[('SUCCESS', 'Success'), ('ERROR', 'Error'), ('WARNING', 'Warning')], db_index=True, max_length=10)),
-                ('model_name', models.CharField(blank=True, db_index=True, max_length=100)),
-                ('object_count', models.IntegerField(default=0)),
-                ('error_message', models.TextField(blank=True)),
-                ('request_data', models.JSONField(blank=True, null=True)),
-                ('timestamp', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                ('processing_time', models.FloatField(default=0.0)),
+                ('operation', models.CharField(db_index=True, max_length=50)),
+                ('model_name', models.CharField(db_index=True, max_length=255)),
+                ('status', models.CharField(db_index=True, max_length=50)),
+                ('message', models.TextField(blank=True)),
+                ('timestamp', models.DateTimeField(blank=True, editable=False, db_index=True)),
                 ('history_id', models.AutoField(primary_key=True, serialize=False)),
                 ('history_date', models.DateTimeField(db_index=True)),
                 ('history_change_reason', models.CharField(max_length=100, null=True)),
                 ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
                 ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('user', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('history_relation', models.ForeignKey(db_constraint=False, on_delete=django.db.models.deletion.DO_NOTHING, related_name='sync_log_history', to='sb_sync.synclog')),
             ],
             options={
-                'verbose_name': 'Sync Log History',
-                'verbose_name_plural': 'historical sync logs',
-                'db_table': 'sb_sync_log_history',
+                'verbose_name': 'historical Sync Log',
+                'verbose_name_plural': 'historical Sync Logs',
                 'ordering': ('-history_date', '-history_id'),
                 'get_latest_by': ('history_date', 'history_id'),
             },
@@ -231,33 +299,36 @@ class Migration(migrations.Migration):
             name='SyncMetadata',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('model_name', models.CharField(db_index=True, max_length=100, unique=True)),
-                ('last_sync', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                ('total_synced', models.BigIntegerField(default=0)),
+                ('model_name', models.CharField(db_index=True, max_length=255)),
+                ('last_sync', models.DateTimeField(blank=True, null=True)),
+                ('total_records', models.IntegerField(default=0)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
             ],
             options={
+                'verbose_name': 'Sync Metadata',
+                'verbose_name_plural': 'Sync Metadatas',
                 'db_table': 'sb_sync_metadata',
-                'indexes': [models.Index(fields=['model_name', 'last_sync'], name='sb_sync_met_model_n_55aa4a_idx')],
             },
         ),
         migrations.CreateModel(
             name='HistoricalSyncMetadata',
             fields=[
                 ('id', models.BigIntegerField(auto_created=True, blank=True, db_index=True, verbose_name='ID')),
-                ('model_name', models.CharField(db_index=True, max_length=100)),
-                ('last_sync', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
-                ('total_synced', models.BigIntegerField(default=0)),
+                ('model_name', models.CharField(db_index=True, max_length=255)),
+                ('last_sync', models.DateTimeField(blank=True, null=True)),
+                ('total_records', models.IntegerField(default=0)),
+                ('created_at', models.DateTimeField(blank=True, editable=False)),
+                ('updated_at', models.DateTimeField(blank=True, editable=False)),
                 ('history_id', models.AutoField(primary_key=True, serialize=False)),
                 ('history_date', models.DateTimeField(db_index=True)),
                 ('history_change_reason', models.CharField(max_length=100, null=True)),
                 ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
                 ('history_user', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
-                ('history_relation', models.ForeignKey(db_constraint=False, on_delete=django.db.models.deletion.DO_NOTHING, related_name='sync_metadata_history', to='sb_sync.syncmetadata')),
             ],
             options={
-                'verbose_name': 'Sync Metadata History',
-                'verbose_name_plural': 'historical sync metadatas',
-                'db_table': 'sb_sync_metadata_history',
+                'verbose_name': 'historical Sync Metadata',
+                'verbose_name_plural': 'historical Sync Metadatas',
                 'ordering': ('-history_date', '-history_id'),
                 'get_latest_by': ('history_date', 'history_id'),
             },
@@ -270,7 +341,7 @@ class Migration(migrations.Migration):
                 ('is_active', models.BooleanField(db_index=True, default=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('group', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='auth.group')),
+                ('group', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='auth.group')),
                 ('site', models.ForeignKey(help_text='Django Site representing the site', on_delete=django.db.models.deletion.CASCADE, to='sites.site')),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
             ],
@@ -285,7 +356,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('model_name', models.CharField(db_index=True, max_length=255)),
-                ('last_sync', models.DateTimeField(auto_now=True, db_index=True)),
+                ('last_sync', models.DateTimeField(blank=True, null=True)),
                 ('total_synced', models.IntegerField(default=0)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
@@ -294,7 +365,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'verbose_name': 'User Sync Metadata',
-                'verbose_name_plural': 'User Sync Metadata',
+                'verbose_name_plural': 'User Sync Metadatas',
                 'db_table': 'sb_sync_user_sync_metadata',
             },
         ),
@@ -308,14 +379,13 @@ class Migration(migrations.Migration):
                 ('is_active', models.BooleanField(db_index=True, default=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('group', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='auth.group')),
+                ('group', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='auth.group')),
                 ('site', models.ForeignKey(help_text='Django Site representing the site', on_delete=django.db.models.deletion.CASCADE, to='sites.site')),
             ],
             options={
                 'verbose_name': 'Data Filter',
                 'verbose_name_plural': 'Data Filters',
                 'db_table': 'sb_sync_data_filter',
-                'indexes': [models.Index(fields=['site', 'group', 'model_name'], name='sb_sync_dat_site_id_e704ac_idx')],
             },
         ),
         migrations.CreateModel(
@@ -327,17 +397,16 @@ class Migration(migrations.Migration):
                 ('can_pull', models.BooleanField(db_index=True, default=False)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('group', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='auth.group')),
+                ('group', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='auth.group')),
                 ('site', models.ForeignKey(help_text='Django Site representing the site', on_delete=django.db.models.deletion.CASCADE, to='sites.site')),
             ],
             options={
                 'verbose_name': 'Model Permission',
                 'verbose_name_plural': 'Model Permissions',
                 'db_table': 'sb_sync_model_permission',
-                'indexes': [models.Index(fields=['site', 'group'], name='sb_sync_mod_site_id_a471c1_idx'), models.Index(fields=['model_name', 'site'], name='sb_sync_mod_model_n_e3c7fd_idx')],
-                'unique_together': {('site', 'group', 'model_name')},
             },
         ),
+        # Create indexes for better performance
         migrations.AddIndex(
             model_name='synclog',
             index=models.Index(fields=['timestamp', 'operation'], name='sb_sync_log_timesta_11c11b_idx'),

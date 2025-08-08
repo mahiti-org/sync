@@ -30,3 +30,10 @@ class SbSyncConfig(AppConfig):
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
+        
+        # Setup auto-migration on startup
+        try:
+            from .migration_utils import setup_auto_migration
+            setup_auto_migration()
+        except Exception as e:
+            logger.error(f"Failed to setup auto-migration: {e}")

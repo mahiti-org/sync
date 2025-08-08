@@ -263,7 +263,7 @@ class PullAPIView(APIView):
                     
                     # Apply pagination
                     queryset = queryset[:batch_size]
-                    
+
                     # Serialize data
                     model_data = []
                     for obj in queryset:

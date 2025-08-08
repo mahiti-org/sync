@@ -16,6 +16,7 @@ A robust Django package for data synchronization with PUSH/PULL APIs, featuring 
 - **Background Tasks**: Celery integration for maintenance tasks
 - **Data Validation**: Automatic model structure validation
 - **Error Handling**: Robust error handling and reporting
+- **🔄 Auto-Migration System**: Automatic version detection and schema migration
 
 ## 📋 Requirements
 
@@ -205,6 +206,99 @@ python manage.py configure_model_discovery --test-discovery
 
 # Reset to defaults
 python manage.py configure_model_discovery --reset-to-defaults
+```
+
+### 🔄 Auto-Migration System
+
+The package includes an intelligent auto-migration system that automatically detects version gaps and handles schema migrations gracefully.
+
+#### Features
+
+- **Automatic Version Detection**: Detects current database schema version
+- **Schema Change Detection**: Identifies required migrations
+- **Data Preservation**: Safely migrates data between versions
+- **Graceful Error Handling**: Comprehensive error recovery
+- **Rollback Capabilities**: Support for migration rollbacks
+- **Management Commands**: Command-line migration control
+- **Startup Auto-Migration**: Automatic migration on app startup
+
+#### Migration Scenarios Handled
+
+- **v1.x → v2.x**: Organization-based to Site-based migration
+- **Fresh Installations**: New database setup
+- **Schema Updates**: Field and table structure changes
+- **Data Preservation**: Maintains existing data during migration
+- **Error Recovery**: Handles migration failures gracefully
+
+#### Management Commands
+
+```bash
+# Check migration status (dry run)
+python manage.py auto_migrate --dry-run --verbose
+
+# Force migration (even if not needed)
+python manage.py auto_migrate --force
+
+# Verbose migration with detailed output
+python manage.py auto_migrate --verbose
+```
+
+#### Automatic Startup Migration
+
+The auto-migration system runs automatically when the Django app starts:
+
+```python
+# In your Django app's apps.py
+class SbSyncConfig(AppConfig):
+    def ready(self):
+        # Auto-migration runs automatically
+        from .migration_utils import setup_auto_migration
+        setup_auto_migration()
+```
+
+#### Migration Detection
+
+The system detects migration needs by checking:
+
+- Database schema version
+- Table structure differences
+- Foreign key relationships
+- Data integrity requirements
+
+#### Example Migration Flow
+
+```python
+# 1. Version Detection
+current_version = detector.detect_current_version()  # Returns '1.x', '2.x', or 'fresh'
+
+# 2. Schema Change Detection
+schema_changes = detector.detect_schema_changes()  # Identifies required changes
+
+# 3. Migration Execution
+if migrator.needs_migration():
+    success = migrator.auto_migrate()  # Performs migration
+```
+
+#### Error Handling
+
+The auto-migration system includes comprehensive error handling:
+
+- **Database Connection Issues**: Graceful handling of connection failures
+- **Schema Conflicts**: Resolution of table structure conflicts
+- **Data Integrity**: Validation of migrated data
+- **Rollback Support**: Ability to revert failed migrations
+
+#### Configuration
+
+```python
+# Disable auto-migration (if needed)
+SB_SYNC_AUTO_MIGRATION = False
+
+# Custom migration timeout
+SB_SYNC_MIGRATION_TIMEOUT = 300  # 5 minutes
+
+# Enable verbose migration logging
+SB_SYNC_MIGRATION_VERBOSE = True
 ```
 
 #### Model Discovery Settings
